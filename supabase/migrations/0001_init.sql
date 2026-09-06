@@ -194,7 +194,7 @@ create or replace function match_context(
   p_library_id      text,
   p_version         text default null,
   p_query           text default '',
-  p_query_embedding halfvec default null,
+  p_embedding halfvec default null,
   p_max_tokens      int default 4000,
   p_fast            boolean default false
 ) returns jsonb
@@ -219,8 +219,8 @@ begin
     select s.title, s.description, s.language, s.tokens, s.source_url,
            s.source_file, s.breadcrumb, s.code,
            ( 0.7 * case
-                     when not p_fast and p_query_embedding is not null and s.embedding is not null
-                     then 1 - (s.embedding <=> p_query_embedding)
+                     when not p_fast and p_embedding is not null and s.embedding is not null
+                     then 1 - (s.embedding <=> p_embedding)
                      else 0 end
            + 0.3 * ts_rank(s.fts, v_tsq)
            )::real as score
@@ -230,8 +230,8 @@ begin
       and (
         case when p_fast then (s.fts @@ v_tsq)
         else ( (s.fts @@ v_tsq)
-               or (p_query_embedding is not null and s.embedding is not null
-                   and 1 - (s.embedding <=> p_query_embedding) > 0.3) )
+               or (p_embedding is not null and s.embedding is not null
+                   and 1 - (s.embedding <=> p_embedding) > 0.3) )
         end
       )
     order by score desc
@@ -247,8 +247,8 @@ begin
   info_ranked as (
     select s.page_title, s.breadcrumb, s.content, s.tokens, s.source_url,
            ( 0.7 * case
-                     when not p_fast and p_query_embedding is not null and s.embedding is not null
-                     then 1 - (s.embedding <=> p_query_embedding)
+                     when not p_fast and p_embedding is not null and s.embedding is not null
+                     then 1 - (s.embedding <=> p_embedding)
                      else 0 end
            + 0.3 * ts_rank(s.fts, v_tsq)
            )::real as score
@@ -258,8 +258,8 @@ begin
       and (
         case when p_fast then (s.fts @@ v_tsq)
         else ( (s.fts @@ v_tsq)
-               or (p_query_embedding is not null and s.embedding is not null
-                   and 1 - (s.embedding <=> p_query_embedding) > 0.3) )
+               or (p_embedding is not null and s.embedding is not null
+                   and 1 - (s.embedding <=> p_embedding) > 0.3) )
         end
       )
     order by score desc

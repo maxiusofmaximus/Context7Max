@@ -97,7 +97,7 @@ function curatedRows(): CatalogRow[] {
 
 async function hubRows(): Promise<CatalogRow[]> {
   const url =
-    "https://raw.githubusercontent.com/thedaviddias/llms-txt-hub/main/packages/data/websites.json";
+    "https://raw.githubusercontent.com/thedaviddias/llms-txt-hub/main/data/websites.json";
   const res = await fetch(url);
   if (!res.ok) throw new Error(`hub fetch failed: ${res.status}`);
   const sites = (await res.json()) as {
@@ -123,7 +123,8 @@ async function hubRows(): Promise<CatalogRow[]> {
       trust_score: 6,
     });
   }
-  return rows;
+  // dedupe by id (hub has www./apex domain variants that collide)
+  return [...new Map(rows.map((r) => [r.id, r])).values()];
 }
 
 const env: DbEnv = {

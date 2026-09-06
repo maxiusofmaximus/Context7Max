@@ -87,15 +87,21 @@ function sanitizeRules(rules: string[]): string[] {
 }
 
 function embedTextsForCode(s: { title: string; description: string | null; language: string | null; breadcrumb: string | null; code: string }): string {
-  return [s.breadcrumb, s.title, s.description, s.language, s.code.slice(0, 1400)]
+  const text = [s.breadcrumb, s.title, s.description, s.language, s.code.slice(0, 1000)]
     .filter(Boolean)
-    .join("\n");
+    .join("\n")
+    .slice(0, 1400)
+    .trim();
+  return text || "(snippet)";
 }
 
 function embedTextsForInfo(s: { page_title: string | null; breadcrumb: string | null; content: string }): string {
-  return [s.breadcrumb, s.page_title, s.content.slice(0, 1500)]
+  const text = [s.breadcrumb, s.page_title, s.content.slice(0, 1200)]
     .filter(Boolean)
-    .join("\n");
+    .join("\n")
+    .slice(0, 1400)
+    .trim();
+  return text || "(snippet)";
 }
 
 function parseDocumentSafe(file: DocFile) {
@@ -187,6 +193,7 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
     const codeRows: Omit<CodeSnippetRow, "id">[] = [];
     const infoRows: Omit<InfoSnippetRow, "id">[] = [];
     const seenCode = new Set<string>();
+    const seenInfo = new Set<string>();
     let filesWithCode = 0;
     for (const file of source.files) {
       const parsed = parseDocumentSafe(file);
@@ -198,6 +205,8 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
         codeRows.push({ ...s, library_id: libraryId, version });
       }
       for (const s of parsed.infoSnippets) {
+        if (seenInfo.has(s.content_hash)) continue;
+        seenInfo.add(s.content_hash);
         infoRows.push({ ...s, library_id: libraryId, version });
       }
     }

@@ -32,7 +32,9 @@ export function createDb(env: DbEnv): SupabaseClient {
 
 // ── Embeddings (Supabase Edge Function, gte-small) ─────────────────
 
-const EMBED_BATCH = 48;
+// Small batches: gte-small runs CPU inference inside the Edge isolate —
+// big payloads hit WORKER_RESOURCE_LIMIT.
+const EMBED_BATCH = 8;
 
 export async function embedTexts(
   env: DbEnv,
@@ -40,30 +42,45 @@ export async function embedTexts(
 ): Promise<(number[] | null)[]> {
   if (texts.length === 0) return [];
   const out: (number[] | null)[] = new Array(texts.length).fill(null);
+  let consecutiveFailures = 0;
   for (let i = 0; i < texts.length; i += EMBED_BATCH) {
     const batch = texts.slice(i, i + EMBED_BATCH);
-    try {
-      const res = await fetch(`${env.supabaseUrl}/functions/v1/embed`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${env.serviceRoleKey}`,
-        },
-        body: JSON.stringify({ inputs: batch }),
-      });
-      if (!res.ok) throw new Error(`embed ${res.status}: ${await res.text()}`);
-      const data = (await res.json()) as { embeddings: number[][] };
-      if (!Array.isArray(data.embeddings)) throw new Error("bad embed payload");
-      data.embeddings.forEach((e, j) => {
-        out[i + j] = e;
-      });
-    } catch (err) {
-      // degrade: keep nulls → FTS-only rows
-      console.warn(
-        `[ctx7max] embeddings batch failed (${(err as Error).message}); continuing without vectors`,
-      );
-      break;
+    let done = false;
+    for (let attempt = 0; attempt < 2 && !done; attempt++) {
+      try {
+        const res = await fetch(`${env.supabaseUrl}/functions/v1/embed`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${env.serviceRoleKey}`,
+          },
+          body: JSON.stringify({ inputs: batch }),
+        });
+        if (!res.ok)
+          throw new Error(`embed ${res.status}: ${(await res.text()).slice(0, 200)}`);
+        const data = (await res.json()) as { embeddings: number[][] };
+        if (!Array.isArray(data.embeddings)) throw new Error("bad embed payload");
+        data.embeddings.forEach((e, j) => {
+          out[i + j] = e;
+        });
+        done = true;
+        consecutiveFailures = 0;
+      } catch (err) {
+        console.warn(
+          `[ctx7max] embeddings batch ${i} failed (attempt ${attempt + 1}): ${(err as Error).message}`,
+        );
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+      }
     }
+    if (!done) {
+      consecutiveFailures++;
+      if (consecutiveFailures >= 3) {
+        console.warn("[ctx7max] 3 lotes de embeddings fallidos seguidos — continuo sin vectores (modo FTS)");
+        break;
+      }
+    }
+    // breathing room for the shared isolate
+    await new Promise((r) => setTimeout(r, 60));
   }
   return out;
 }
