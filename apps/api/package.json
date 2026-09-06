@@ -1,0 +1,18 @@
+{
+  "name": "@ctx7max/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ctx7max/core": "workspace:*",
+    "@supabase/supabase-js": "^2.47.10"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@vercel/node": "^5.3.0",
+    "typescript": "^5.6.3"
+  }
+}

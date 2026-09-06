@@ -1,0 +1,45 @@
+{
+  "name": "ctx7max",
+  "version": "0.1.0",
+  "description": "CLI for Context7Max — your unlimited self-hosted docs context service",
+  "type": "module",
+  "bin": {
+    "ctx7max": "./dist/cli.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup --config tsup.config.ts && node scripts/postbuild.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ctx7max/core": "workspace:*",
+    "@ctx7max/ingestor": "workspace:*",
+    "@ctx7max/mcp": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "commander": "^12.1.0",
+    "picocolors": "^1.1.1",
+    "@supabase/supabase-js": "^2.47.10",
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "zod": "^3.23.8",
+    "fflate": "^0.8.2",
+    "jsdom": "^25.0.1",
+    "turndown": "^7.2.0",
+    "@mozilla/readability": "^0.6.0",
+    "yaml": "^2.6.0",
+    "js-tiktoken": "^1.0.16",
+    "micromatch": "^4.0.8",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "lru-cache": "^11.0.0"
+  }
+}

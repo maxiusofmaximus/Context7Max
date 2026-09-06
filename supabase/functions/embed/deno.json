@@ -1,0 +1,5 @@
+{
+  "tasks": {},
+  "fmt": { "useTabs": false, "lineWidth": 100 },
+  "lint": { "rules": { "tags": ["recommended"] } }
+}

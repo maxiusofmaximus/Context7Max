@@ -1,0 +1,38 @@
+{
+  "name": "context7max",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Context7Max — unlimited, self-hosted Context7: up-to-date library docs for LLMs. Supabase + Vercel + GitHub.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@11.5.2",
+  "scripts": {
+    "build": "pnpm -r --filter \"./packages/**\" run build",
+    "dev": "pnpm -r --parallel --filter \"./packages/**\" run dev",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "worker": "tsx scripts/worker.mts",
+    "seed": "tsx scripts/seed-catalog.mts",
+    "smoke": "tsx scripts/smoke-preview.mts",
+    "clean": "pnpm -r exec rm -rf dist node_modules/.cache"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2",
+    "@ctx7max/core": "workspace:*",
+    "@ctx7max/ingestor": "workspace:*"
+  },
+  "keywords": [
+    "context7",
+    "llm",
+    "documentation",
+    "rag",
+    "mcp",
+    "embeddings",
+    "supabase",
+    "vercel"
+  ],
+  "license": "MIT"
+}

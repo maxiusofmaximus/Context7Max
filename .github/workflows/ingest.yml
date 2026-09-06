@@ -1,0 +1,54 @@
+name: ctx7max-ingest
+
+on:
+  repository_dispatch:
+    types: [ctx7max-ingest]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL a ingestar (repo GitHub / llms.txt / website / openapi)"
+        required: false
+        type: string
+  schedule:
+    # consume la cola cada hora + refresco semanal de librerías viejas
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ctx7max-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # version from package.json "packageManager"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install + build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Process queue / refresh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GH_INGEST_TOKEN || secrets.GITHUB_TOKEN }}
+          EVENT_URL: ${{ github.event.client_payload.sourceUrl || inputs.url }}
+        run: |
+          if [ -n "$EVENT_URL" ]; then
+            pnpm exec tsx scripts/worker.mts url "$EVENT_URL"
+          else
+            pnpm exec tsx scripts/worker.mts queue
+            pnpm exec tsx scripts/worker.mts refresh
+          fi

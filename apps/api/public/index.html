@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Context7Max — Dashboard</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { font: 14px/1.5 system-ui, sans-serif; background: #0b0d10; color: #e6e9ee; margin: 0; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 22px; letter-spacing: .3px; }
+    h1 span { color: #6aa6ff; }
+    .muted { color: #8b93a1; }
+    .card { background: #12151b; border: 1px solid #232936; border-radius: 10px; padding: 16px; margin: 14px 0; }
+    input, select, button { font: inherit; background: #0d1015; color: inherit; border: 1px solid #2a3140; border-radius: 8px; padding: 8px 12px; }
+    button { cursor: pointer; background: #1d2635; }
+    button:hover { background: #263247; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1c2230; font-size: 13px; }
+    th { color: #8b93a1; font-weight: 500; }
+    code { background: #1a2029; padding: 1px 6px; border-radius: 6px; font-size: 12px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+    .b-ok { background: #12351f; color: #63cf8b; }
+    .b-warn { background: #3a2f10; color: #e7c463; }
+    .b-err { background: #3d1616; color: #f28383; }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Context7<span>Max</span> <span class="muted" style="font-size:13px">tu Context7 ilimitado</span></h1>
+
+    <div class="card row" id="keystep">
+      <input id="apikey" type="password" placeholder="API key (ctx7mk-…)" style="flex:1;min-width:240px" />
+      <button onclick="saveKey()">Conectar</button>
+      <span class="muted" id="health"></span>
+    </div>
+
+    <div class="card" id="addcard" hidden>
+      <b>Añadir librería</b>
+      <div class="row" style="margin-top:10px">
+        <input id="addurl" placeholder="https://github.com/org/repo · https://sitio.dev/llms.txt · https://docs.sitio.dev" style="flex:1;min-width:260px" />
+        <button onclick="addLib()">Ingestar</button>
+      </div>
+      <p class="muted" id="addmsg"></p>
+    </div>
+
+    <div class="card" id="stats" hidden></div>
+    <div class="card" id="libcard" hidden>
+      <b>Librerías indexadas</b>
+      <table id="libtable"></table>
+    </div>
+    <div class="card" id="jobcard" hidden>
+      <b>Jobs recientes</b>
+      <table id="jobtable"></table>
+    </div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const key = () => localStorage.getItem("ctx7mk") || "";
+$("apikey").value = key();
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { Authorization: `Bearer ${key()}`, "Content-Type": "application/json" },
+  });
+  return { status: res.status, data: await res.json().catch(() => ({})) };
+}
+
+function saveKey() {
+  localStorage.setItem("ctx7mk", $("apikey").value.trim());
+  load();
+}
+
+async function addLib() {
+  const url = $("addurl").value.trim();
+  if (!url) return;
+  $("addmsg").textContent = "Encolando ingesta…";
+  const { status, data } = await api("/api/v2/add", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
+  $("addmsg").textContent =
+    status === 202
+      ? "✅ Aceptado. La ingesta corre en background (worker GitHub Actions o CLI). Recarga en un minuto."
+      : `Error ${status}: ${data.message || "desconocido"}`;
+}
+
+async function load() {
+  const h = await fetch("/api/health").then((r) => r.json()).catch(() => null);
+  $("health").textContent = h ? `· API ${h.status} · DB: ${h.database} · ${h.libraries} libs · ${h.snippets} snippets` : "· API caída";
+  if (!key()) return;
+
+  const { status, data } = await api("/api/v2/libs/list");
+  if (status !== 200) {
+    $("health").textContent += " · clave inválida";
+    return;
+  }
+  $("addcard").hidden = false;
+  $("stats").hidden = false;
+  $("libcard").hidden = false;
+  $("jobcard").hidden = false;
+
+  const libs = data.libraries || [];
+  const tokens = libs.reduce((a, l) => a + (l.total_tokens || 0), 0);
+  const snippets = libs.reduce((a, l) => a + (l.total_snippets || 0), 0);
+  $("stats").innerHTML =
+    `<b>${libs.length}</b> librerías indexadas · <b class="num">${snippets.toLocaleString()}</b> snippets · ` +
+    `<b class="num">${(tokens / 1e6).toFixed(2)}M</b> tokens · catálogo: <b>${data.catalogSize}</b> fuentes`;
+
+  $("libtable").innerHTML =
+    "<tr><th>ID</th><th>Título</th><th>Estado</th><th>Snippets</th><th>Tokens</th><th>★</th><th>Versiones</th></tr>" +
+    libs
+      .map((l) => {
+        const badge =
+          l.state === "finalized" ? '<span class="badge b-ok">finalized</span>'
+          : l.state === "error" ? '<span class="badge b-err">error</span>'
+          : '<span class="badge b-warn">' + l.state + "</span>";
+        return `<tr><td><code>${l.id}</code></td><td>${l.title}</td><td>${badge}</td>` +
+          `<td class="num">${l.total_snippets}</td><td class="num">${(l.total_tokens / 1000).toFixed(0)}k</td>` +
+          `<td class="num">${l.stars}</td><td class="muted">${(l.versions || []).slice(0, 3).join(", ")}</td></tr>`;
+      })
+      .join("");
+
+  $("jobtable").innerHTML =
+    "<tr><th>Librería</th><th>Acción</th><th>Estado</th><th>Etapa</th><th>Cuándo</th></tr>" +
+    (data.recentJobs || [])
+      .map((j) => `<tr><td><code>${j.library_id}</code></td><td>${j.action}</td><td>${j.status}</td><td>${j.stage || ""}</td><td class="muted">${new Date(j.created_at).toLocaleString()}</td></tr>`)
+      .join("");
+}
+load();
+</script>
+</body>
+</html>

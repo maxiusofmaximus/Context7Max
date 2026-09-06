@@ -1,0 +1,23 @@
+name: ctx7max-keepalive
+
+on:
+  schedule:
+    - cron: "23 5 * * *" # daily — keeps Supabase free tier awake
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API health
+        env:
+          API_URL: ${{ vars.CTX7MAX_API_URL }}
+        run: |
+          if [ -n "$API_URL" ]; then
+            curl -fsS "$API_URL/api/health" || exit 1
+          else
+            echo "CTX7MAX_API_URL not set — set it in repo Variables"
+            exit 1
+          fi
