@@ -39,7 +39,7 @@ export async function enqueueIngestion(
         client_payload: { sourceUrl, libraryId: libId },
       }),
     });
-    return { enqueued: true, dispatched: res.ok };
+    return { enqueued: true, dispatched: res.status >= 200 && res.status < 300 };
   } catch {
     return { enqueued: true, dispatched: false };
   }

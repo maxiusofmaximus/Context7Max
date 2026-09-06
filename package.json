@@ -13,6 +13,7 @@
     "dev": "pnpm -r --parallel --filter \"./packages/**\" run dev",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
+    "build:functions": "node apps/api/build.mjs",
     "worker": "tsx scripts/worker.mts",
     "seed": "tsx scripts/seed-catalog.mts",
     "smoke": "tsx scripts/smoke-preview.mts",

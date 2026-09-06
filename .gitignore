@@ -5,7 +5,11 @@ dist/
 .env.local
 .vercel
 .supabase/
+apps/api/.env*.local
+.deploy-keys.txt
 .DS_Store
 coverage/
 *.log
 tmp/
+
+.vercel
