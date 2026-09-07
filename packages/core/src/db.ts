@@ -509,19 +509,9 @@ export async function searchMcpServers(
 export async function listGuideDomains(
   db: SupabaseClient,
 ): Promise<{ domain: string; source: string; count: number }[]> {
-  const { data, error } = await db
-    .from("guides")
-    .select("domain, source");
-  if (error) throw new Error(`guide domains: ${error.message}`);
-  const map = new Map<string, number>();
-  for (const row of (data as { domain: string; source: string }[])) {
-    const key = `${row.domain}::${row.source}`;
-    map.set(key, (map.get(key) ?? 0) + 1);
-  }
-  return [...map.entries()].map(([k, count]) => {
-    const [domain, source] = k.split("::");
-    return { domain: domain!, source: source!, count };
-  });
+  const { data, error } = await db.rpc("guide_domains");
+  if (error) throw new Error(`guide_domains: ${error.message}`);
+  return (data as { domain: string; source: string; count: number }[]) ?? [];
 }
 
 // ── Health ───────────────────────────────────────────────────────────

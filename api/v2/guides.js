@@ -29133,17 +29133,9 @@ async function searchGuides(db, opts) {
   return data ?? [];
 }
 async function listGuideDomains(db) {
-  const { data, error } = await db.from("guides").select("domain, source");
-  if (error) throw new Error(`guide domains: ${error.message}`);
-  const map = /* @__PURE__ */ new Map();
-  for (const row of data) {
-    const key = `${row.domain}::${row.source}`;
-    map.set(key, (map.get(key) ?? 0) + 1);
-  }
-  return [...map.entries()].map(([k, count]) => {
-    const [domain, source] = k.split("::");
-    return { domain, source, count };
-  });
+  const { data, error } = await db.rpc("guide_domains");
+  if (error) throw new Error(`guide_domains: ${error.message}`);
+  return data ?? [];
 }
 
 // lib/auth.ts
