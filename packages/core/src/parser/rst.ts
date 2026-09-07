@@ -106,8 +106,8 @@ export function parseRst(content: string, opts: ParseOptions): ParsedPage {
       continue;
     }
 
-    // ── code directive: .. code-block:: lang ──
-    const directiveMatch = line.text.match(/^\.\.\s+(?:code-block|code|sourcecode)::\s*(\S+)?/i);
+    // ── code directive: .. code-block:: lang | .. code-tab:: lang [Label] ──
+    const directiveMatch = line.text.match(/^\.\.\s+(?:code-block|code-tab|code|sourcecode)::\s*(\S+)?/i);
     if (directiveMatch) {
       flushProse();
       const lang = directiveMatch[1]?.toLowerCase() ?? null;

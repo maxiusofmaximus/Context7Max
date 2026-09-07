@@ -2,10 +2,11 @@ import type { DocFile, ParsedPage } from "../types.js";
 import { parseMarkdown, stripMdx, type ParseOptions } from "./markdown.js";
 import { parseRst } from "./rst.js";
 import { parseIpynb } from "./ipynb.js";
+import { parseAsciidoc } from "./asciidoc.js";
 import { countTokens } from "../tokens.js";
 import { hashContent } from "../hash.js";
 
-export { parseMarkdown, stripMdx, parseRst, parseIpynb };
+export { parseMarkdown, stripMdx, parseRst, parseIpynb, parseAsciidoc };
 
 /** Parse any supported doc file into snippets. */
 export function parseDocument(file: DocFile, opts?: Partial<ParseOptions>): ParsedPage {
@@ -20,6 +21,9 @@ export function parseDocument(file: DocFile, opts?: Partial<ParseOptions>): Pars
       return parseRst(file.content, options);
     case ".ipynb":
       return parseIpynb(file.content, options);
+    case ".adoc":
+    case ".asciidoc":
+      return parseAsciidoc(file.content, options);
     case ".txt":
       return parsePlainText(file.content, options);
     default:

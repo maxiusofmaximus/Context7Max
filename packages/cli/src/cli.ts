@@ -12,6 +12,14 @@ import {
 } from "./commands/manage.js";
 import { cmdDoctor } from "./commands/doctor.js";
 import { cmdSetup } from "./commands/setup.js";
+import {
+  cmdGuide,
+  cmdGuides,
+  cmdSkillSearch,
+  cmdSkillInstall,
+  cmdMcps,
+  cmdIngest,
+} from "./commands/kb.js";
 
 const program = new Command();
 
@@ -110,6 +118,48 @@ program
   .option("--agents", "Universal (~/.agents/skills)")
   .option("--all", "todos los destinos")
   .action(cmdSetup);
+
+program
+  .command("guide")
+  .description("Guías paso a paso curadas (roadmaps, currículos) por dominio")
+  .argument("<query>", "tema, p.ej. 'autenticación con JWT' o 'game loop'")
+  .option("--domain <dominio>", "p.ej. android, gamedev, osdev (ver: ctx7max guides)")
+  .option("--limit <n>", "número máximo de resultados", (v) => parseInt(v, 10))
+  .option("--json", "salida JSON")
+  .action(cmdGuide);
+
+program
+  .command("guides")
+  .description("Lista los dominios de conocimiento disponibles")
+  .option("--json", "salida JSON")
+  .action(cmdGuides);
+
+program
+  .command("skill")
+  .description("Skills de agente: search / install")
+  .argument("<accion>", "search | install")
+  .argument("<valor>", "query (search) o id (install)")
+  .option("--limit <n>", "resultados máximos", (v) => parseInt(v, 10))
+  .option("--json", "salida JSON")
+  .action((accion, valor, opts) =>
+    accion === "install"
+      ? cmdSkillInstall(valor)
+      : cmdSkillSearch(valor, opts),
+  );
+
+program
+  .command("mcps")
+  .description("Busca servidores MCP en los registros indexados")
+  .argument("<query>")
+  .action(cmdMcps);
+
+program
+  .command("ingest")
+  .description("(admin) Indexa capas de conocimiento: guides | skills | mcps")
+  .argument("<tipo>", "guides | skills | mcps")
+  .argument("[source]", "solo para guides: roadmap.sh | ossu | freecodecamp | odin | fullstackopen | missing-semester")
+  .option("--no-embed", "sin embeddings (solo FTS)")
+  .action((tipo, source, opts) => cmdIngest(tipo, { source, noEmbed: opts.noEmbed }));
 
 program
   .command("mcp")

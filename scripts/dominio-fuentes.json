@@ -1,0 +1,114 @@
+{
+  "web-backend": [
+    "https://github.com/honojs/hono",
+    "https://github.com/fastify/fastify",
+    "https://github.com/expressjs/express",
+    "https://github.com/trpc/trpc"
+  ],
+  "android": [
+    "https://github.com/android/nowinandroid",
+    "https://github.com/android/compose-samples",
+    "https://github.com/android/architecture-samples",
+    "https://github.com/android/tv-samples",
+    "https://github.com/android/wear-os-samples",
+    "https://github.com/android/user-interface-samples",
+    "https://github.com/googlecodelabs/android-compose-codelabs"
+  ],
+  "ios-macos": [
+    "https://github.com/swiftlang/swift-book",
+    "https://github.com/swiftlang/swift-evolution",
+    "https://github.com/pointfreeco/swift-composable-architecture",
+    "https://developer.apple.com/documentation/swiftui",
+    "https://developer.apple.com/documentation/appkit"
+  ],
+  "mobile-multiplatform": [
+    "https://github.com/flutter/website",
+    "https://github.com/react/react-native-website",
+    "https://github.com/expo/expo",
+    "https://github.com/JetBrains/kotlin-web-site",
+    "https://github.com/dotnet/docs-maui"
+  ],
+  "desktop": [
+    "https://github.com/MicrosoftDocs/windows-dev-docs",
+    "https://github.com/MicrosoftDocs/win32",
+    "https://github.com/microsoft/microsoft-ui-xaml",
+    "https://github.com/electron/electron",
+    "https://github.com/tauri-apps/tauri-docs",
+    "https://github.com/flatpak/flatpak-docs",
+    "https://doc.qt.io",
+    "https://developer.gnome.org"
+  ],
+  "gamedev": [
+    "https://github.com/godotengine/godot-docs",
+    "https://github.com/KhronosGroup/Vulkan-Docs",
+    "https://github.com/JoeyDeVries/LearnOpenGL",
+    "https://github.com/patriciogonzalezvivo/thebookofshaders",
+    "https://github.com/munificent/game-programming-patterns",
+    "https://github.com/Calinou/awesome-gamedev",
+    "https://dev.epicgames.com/llms.txt"
+  ],
+  "consoles-homebrew": [
+    "https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain",
+    "https://github.com/switchbrew/libnx",
+    "https://github.com/devkitPro/installer",
+    "https://switchbrew.org/wiki",
+    "https://www.psdevwiki.com"
+  ],
+  "tv": [
+    "https://github.com/Samsung/tizen-docs",
+    "https://webostv.developer.lge.com",
+    "https://developer.samsung.com/smarttv/develop/overview.html",
+    "https://developer.android.com/training/tv"
+  ],
+  "wearables": [
+    "https://github.com/android/wear-os-samples",
+    "https://github.com/google/horologist",
+    "https://developer.android.com/wear",
+    "https://developer.apple.com/documentation/watchkit"
+  ],
+  "osdev": [
+    "https://github.com/phil-opp/blog_os",
+    "https://github.com/cfenollosa/os-tutorial",
+    "https://github.com/0xAX/linux-insides",
+    "https://github.com/sysprog21/lkmpg",
+    "https://github.com/mit-pdos/xv6-riscv",
+    "https://wiki.osdev.org",
+    "https://github.com/SerenityOS/serenity"
+  ],
+  "kernel-drivers": [
+    "https://github.com/torvalds/linux",
+    "https://github.com/rust-embedded/book",
+    "https://www.kernel.org/doc/html/latest/",
+    "https://github.com/torvalds/linux/tree/master/Documentation"
+  ],
+  "embedded": [
+    "https://github.com/raspberrypi/documentation",
+    "https://github.com/raspberrypi/pico-sdk",
+    "https://github.com/zephyrproject-rtos/zephyr",
+    "https://github.com/embassy-rs/embassy",
+    "https://github.com/espressif/esp-idf",
+    "https://github.com/riscv/riscv-isa-manual",
+    "https://github.com/FreeRTOS/FreeRTOS",
+    "https://github.com/rp-rs/rp-hal"
+  ],
+  "linux-distros": [
+    "https://github.com/CachyOS/wiki",
+    "https://github.com/CachyOS/linux-cachyos",
+    "https://wiki.archlinux.org",
+    "https://wiki.gentoo.org",
+    "https://www.linuxfromscratch.org"
+  ],
+  "ai-llm": [
+    "https://github.com/openai/openai-node",
+    "https://github.com/anthropics/anthropic-sdk-typescript",
+    "https://github.com/langchain-ai/langchainjs",
+    "https://github.com/vercel/ai",
+    "https://github.com/modelcontextprotocol/servers"
+  ],
+  "career":
+  [
+    "https://github.com/kamranahmedse/developer-roadmap",
+    "https://github.com/ossu/computer-science",
+    "https://github.com/donnemartin/system-design-primer"
+  ]
+}

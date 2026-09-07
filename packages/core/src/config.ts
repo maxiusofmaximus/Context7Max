@@ -59,6 +59,8 @@ export const DOC_EXTENSIONS = [
   ".mdown",
   ".mkdn",
   ".rst",
+  ".adoc",
+  ".asciidoc",
   ".txt",
   ".ipynb",
 ] as const;

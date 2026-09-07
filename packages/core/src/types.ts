@@ -236,3 +236,89 @@ export interface ContextParams {
 
 export const DEFAULT_MAX_TOKENS = 4000;
 export const EMBEDDING_DIMS = 384; // gte-small
+
+// ── v3: guides / skills / mcp ───────────────────────────────────────
+
+export interface GuideLink {
+  type: string; // official | course | video | article | book | opensource…
+  label: string;
+  url: string;
+}
+
+export interface GuideRow {
+  id?: number;
+  source: string;
+  domain: string;
+  track: string | null;
+  node_id: string | null;
+  title: string;
+  body: string;
+  links: GuideLink[];
+  position: number;
+  license: string | null;
+  tokens: number;
+  content_hash: string;
+  embedding?: number[] | null;
+}
+
+export interface SkillRow {
+  id: string;
+  source: string; // 'skills.sh' | 'ui-skills' | 'github'
+  name: string;
+  description: string | null;
+  repo_url: string | null;
+  raw_url: string | null;
+  body: string;
+  frontmatter: Record<string, unknown>;
+  files: { path: string; bytes?: number }[];
+  content_hash: string;
+  license: string | null;
+  installs: number;
+  trust: Record<string, unknown>;
+  tokens: number;
+  embedding?: number[] | null;
+}
+
+export interface McpServerRow {
+  name: string;
+  description: string | null;
+  url: string | null;
+  repo: string | null;
+  registry: string;
+  verified: boolean;
+  use_count: number;
+}
+
+export const GUIDE_DOMAINS = [
+  "frontend",
+  "backend",
+  "fullstack",
+  "devops",
+  "cloud",
+  "android",
+  "ios",
+  "mobile-multiplatform",
+  "desktop",
+  "gamedev",
+  "consoles-homebrew",
+  "tv",
+  "wearables",
+  "tablets",
+  "osdev",
+  "kernel-drivers",
+  "embedded",
+  "linux-distros",
+  "ai-llm",
+  "data",
+  "security",
+  "databases",
+  "languages",
+  "tools",
+  "cs-fundamentals",
+  "architecture",
+  "qa-testing",
+  "blockchain",
+  "career",
+] as const;
+
+export type GuideDomain = (typeof GUIDE_DOMAINS)[number];

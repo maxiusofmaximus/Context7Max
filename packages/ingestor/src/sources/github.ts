@@ -13,7 +13,7 @@ import { fetchBytes, fetchText } from "../util.js";
 
 const MAX_FILE_BYTES = 512 * 1024; // 512KB per file
 const MAX_FILES = 1500;
-const MAX_TOTAL_BYTES = 200 * 1024 * 1024; // 200MB zip guardrail
+const MAX_TOTAL_BYTES = 500 * 1024 * 1024; // 500MB zip guardrail (ingestation runs locally or in Actions, not in serverless)
 
 export interface GitHubRef {
   owner: string;
@@ -80,8 +80,39 @@ export interface GitHubSourceOptions {
 }
 
 /**
+ * Download a repo zipball and return all files as a Map<path, bytes>.
+ * Shared by the GitHub doc source and the guides ingestor.
+ */
+export async function fetchGitHubZipFiles(
+  owner: string,
+  repo: string,
+  branch: string = "main",
+  token?: string,
+): Promise<Map<string, Uint8Array>> {
+  const tryBranch = async (ref: string) =>
+    fetchBytes(`https://codeload.github.com/${owner}/${repo}/zip/${ref}`, {
+      timeoutMs: 180_000,
+    });
+  let zipBytes: Uint8Array;
+  try {
+    zipBytes = await tryBranch(branch);
+  } catch {
+    zipBytes = await tryBranch(branch === "main" ? "master" : "main");
+  }
+  const files = unzipSync(zipBytes);
+  const rootPrefix = Object.keys(files)[0]?.split("/")[0] ?? "";
+  const out = new Map<string, Uint8Array>();
+  for (const [key, data] of Object.entries(files)) {
+    if (key.endsWith("/")) continue;
+    const rel = key.slice(rootPrefix.length + 1);
+    out.set(rel, data);
+  }
+  return out;
+}
+
+/**
  * Download and extract a GitHub repo's documentation files.
- * Uses the zipball (no git clone needed) — fast and shallow by nature.
+ * Uses the zipball (no git needed) — fast and shallow by nature.
  */
 export async function fetchGitHubSource(
   url: string,

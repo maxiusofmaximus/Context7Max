@@ -24,12 +24,14 @@
     "@mozilla/readability": "^0.6.0",
     "fflate": "^0.8.2",
     "jsdom": "^25.0.1",
+    "pdf-parse": "^2.4.5",
     "turndown": "^7.2.0",
     "yaml": "^2.6.0"
   },
   "devDependencies": {
     "@types/jsdom": "^30.0.0",
     "@types/node": "^22.9.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/turndown": "^5.0.5",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",

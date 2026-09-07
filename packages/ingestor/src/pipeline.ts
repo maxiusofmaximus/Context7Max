@@ -23,7 +23,15 @@ import { fetchGitHubSource } from "./sources/github.js";
 import { fetchLlmsTxtSource } from "./sources/llmstxt.js";
 import { fetchOpenApiSource } from "./sources/openapi.js";
 
-export type SourceKind = "github" | "llmstxt" | "website" | "openapi" | "auto";
+export type SourceKind =
+  | "github"
+  | "llmstxt"
+  | "website"
+  | "openapi"
+  | "git"
+  | "pdf"
+  | "wiki"
+  | "auto";
 
 export interface IngestOptions {
   env: DbEnv;
@@ -60,7 +68,11 @@ export function detectSourceKind(url: string, explicit?: SourceKind): Exclude<So
   if (explicit && explicit !== "auto") return explicit;
   if (/github\.com[/:][^/]+\/[^/#?]+/i.test(url)) return "github";
   if (/llms(-full)?\.txt([?#].*)?$/i.test(url)) return "llmstxt";
+  if (/\.pdf([?#].*)?$/i.test(url)) return "pdf";
   if (/open\s*api|swagger/i.test(url) || /\.(ya?ml|json)$/i.test(url)) return "openapi";
+  if (/^https?:\/\/[^/]*(wiki\.|wiki\.)/i.test(url) || /mediawiki|api\.php/i.test(url)) return "wiki";
+  if (url.endsWith(".git")) return "git";
+  if (url.includes("#") && /gitlab|git\.|cgit|savannah/i.test(url)) return "git";
   return "website";
 }
 
@@ -78,6 +90,18 @@ export async function fetchSource(url: string, opts: IngestOptions): Promise<Ing
     }
     case "openapi":
       return fetchOpenApiSource(url);
+    case "git": {
+      const { fetchGitSource } = await import("./sources/git.js");
+      return fetchGitSource(url);
+    }
+    case "pdf": {
+      const { fetchPdfSource } = await import("./sources/pdf.js");
+      return fetchPdfSource(url);
+    }
+    case "wiki": {
+      const { fetchWikiSource } = await import("./sources/wiki.js");
+      return fetchWikiSource(url);
+    }
   }
 }
 

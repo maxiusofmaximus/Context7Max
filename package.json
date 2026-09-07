@@ -20,10 +20,11 @@
     "clean": "pnpm -r exec rm -rf dist node_modules/.cache"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
-    "tsx": "^4.19.2",
     "@ctx7max/core": "workspace:*",
-    "@ctx7max/ingestor": "workspace:*"
+    "@ctx7max/ingestor": "workspace:*",
+    "@types/node": "^22.20.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
   },
   "keywords": [
     "context7",

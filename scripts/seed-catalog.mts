@@ -9,7 +9,7 @@
  */
 import { createDb, upsertCatalog, type CatalogRow, type DbEnv } from "@ctx7max/core";
 
-const CURATED: [string, string, string[]][] = [
+const CURATED: [string, string[]][] = [
   // [github owner/repo, tags...]  — title/description auto-fetched on ingest;
   // catalog entries help `search` resolve names BEFORE ingestion.
   ["vercel/next.js", ["react", "framework", "ssr"]],

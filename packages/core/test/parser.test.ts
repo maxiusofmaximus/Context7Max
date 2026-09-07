@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseMarkdown, parseRst, parseDocument } from "../src/parser/index.js";
+import { parseMarkdown, parseRst, parseAsciidoc, parseDocument } from "../src/parser/index.js";
 import { shouldIncludePath, DOC_EXTENSIONS } from "../src/config.js";
 
 const MD_SAMPLE = `---
@@ -141,4 +141,36 @@ test("path filtering", () => {
     true,
   );
   assert.ok(DOC_EXTENSIONS.includes(".mdx"));
+});
+
+const ADOC_SAMPLE = `= GPIO and the 40-pin Header
+:doctype: book
+
+A powerful feature of the Raspberry Pi is the row of GPIO pins.
+
+== Using GPIO from Python
+
+The gpiozero library provides simple interfaces.
+
+[source,python]
+----
+from gpiozero import LED
+led = LED(17)
+led.on()
+----
+
+NOTE: GPIO pins are not 5V tolerant.
+
+== I2C and SPI
+
+Both buses can be enabled via raspi-config.
+`;
+
+test("asciidoc: sections and source blocks", () => {
+  const page = parseAsciidoc(ADOC_SAMPLE, { path: "docs/gpio.adoc" });
+  assert.equal(page.title, "GPIO and the 40-pin Header");
+  assert.equal(page.codeSnippets.length, 1);
+  assert.equal(page.codeSnippets[0]!.language, "python");
+  assert.ok(page.codeSnippets[0]!.code.includes("led.on()"));
+  assert.equal(page.codeSnippets[0]!.breadcrumb, "GPIO and the 40-pin Header > Using GPIO from Python");
 });

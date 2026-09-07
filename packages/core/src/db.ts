@@ -2,9 +2,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   CatalogRow,
   CodeSnippetRow,
+  GuideRow,
   InfoSnippetRow,
   JobRow,
   LibraryRow,
+  McpServerRow,
+  SkillRow,
 } from "./types.js";
 
 export interface DbEnv {
@@ -33,8 +36,9 @@ export function createDb(env: DbEnv): SupabaseClient {
 // ── Embeddings (Supabase Edge Function, gte-small) ─────────────────
 
 // Small batches: gte-small runs CPU inference inside the Edge isolate —
-// big payloads hit WORKER_RESOURCE_LIMIT.
+// big payloads hit WORKER_RESOURCE_LIMIT. Modest parallelism keeps it fast.
 const EMBED_BATCH = 8;
+const EMBED_CONCURRENCY = 3;
 
 export async function embedTexts(
   env: DbEnv,
@@ -43,45 +47,60 @@ export async function embedTexts(
   if (texts.length === 0) return [];
   const out: (number[] | null)[] = new Array(texts.length).fill(null);
   let consecutiveFailures = 0;
+
+  const batches: { index: number; items: string[] }[] = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH) {
-    const batch = texts.slice(i, i + EMBED_BATCH);
-    let done = false;
-    for (let attempt = 0; attempt < 2 && !done; attempt++) {
-      try {
-        const res = await fetch(`${env.supabaseUrl}/functions/v1/embed`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${env.serviceRoleKey}`,
-          },
-          body: JSON.stringify({ inputs: batch }),
-        });
-        if (!res.ok)
-          throw new Error(`embed ${res.status}: ${(await res.text()).slice(0, 200)}`);
-        const data = (await res.json()) as { embeddings: number[][] };
-        if (!Array.isArray(data.embeddings)) throw new Error("bad embed payload");
-        data.embeddings.forEach((e, j) => {
-          out[i + j] = e;
-        });
-        done = true;
-        consecutiveFailures = 0;
-      } catch (err) {
-        console.warn(
-          `[ctx7max] embeddings batch ${i} failed (attempt ${attempt + 1}): ${(err as Error).message}`,
-        );
-        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
-      }
-    }
-    if (!done) {
-      consecutiveFailures++;
-      if (consecutiveFailures >= 3) {
-        console.warn("[ctx7max] 3 lotes de embeddings fallidos seguidos — continuo sin vectores (modo FTS)");
-        break;
-      }
-    }
-    // breathing room for the shared isolate
-    await new Promise((r) => setTimeout(r, 60));
+    batches.push({ index: i, items: texts.slice(i, i + EMBED_BATCH) });
   }
+
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (cursor < batches.length) {
+      if (consecutiveFailures >= 3) return;
+      const batch = batches[cursor++]!;
+      let done = false;
+      for (let attempt = 0; attempt < 2 && !done; attempt++) {
+        try {
+          const res = await fetch(`${env.supabaseUrl}/functions/v1/embed`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${env.serviceRoleKey}`,
+            },
+            body: JSON.stringify({ inputs: batch.items }),
+          });
+          if (!res.ok)
+            throw new Error(`embed ${res.status}: ${(await res.text()).slice(0, 200)}`);
+          const data = (await res.json()) as { embeddings: number[][] };
+          if (!Array.isArray(data.embeddings)) throw new Error("bad embed payload");
+          data.embeddings.forEach((e, j) => {
+            out[batch.index + j] = e;
+          });
+          done = true;
+          consecutiveFailures = 0;
+        } catch (err) {
+          if (attempt === 1) {
+            console.warn(
+              `[ctx7max] embeddings batch ${batch.index}: ${(err as Error).message}`,
+            );
+            consecutiveFailures++;
+            if (consecutiveFailures >= 3) {
+              console.warn(
+                "[ctx7max] demasiados fallos seguidos — continuo sin vectores (modo FTS)",
+              );
+              return;
+            }
+          } else {
+            await new Promise((r) => setTimeout(r, 700));
+          }
+        }
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(EMBED_CONCURRENCY, batches.length) }, () => worker()),
+  );
   return out;
 }
 
@@ -344,6 +363,165 @@ export async function matchContext(
   });
   if (error) throw new Error(`match_context: ${error.message}`);
   return data as MatchContextResult;
+}
+
+// ── Guides / Skills / MCP (capas de conocimiento v3) ────────────────
+
+const GUIDE_CHUNK = 400;
+
+export async function upsertGuides(
+  db: SupabaseClient,
+  rows: Omit<GuideRow, "id">[],
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += GUIDE_CHUNK) {
+    const { error } = await db
+      .from("guides")
+      .upsert(rows.slice(i, i + GUIDE_CHUNK), {
+        onConflict: "dedup_key",
+      });
+    if (error) throw new Error(`guides upsert: ${error.message}`);
+  }
+}
+
+export async function deleteGuidesBySource(
+  db: SupabaseClient,
+  source: string,
+): Promise<void> {
+  const { error } = await db.from("guides").delete().eq("source", source);
+  if (error) throw new Error(`delete guides: ${error.message}`);
+}
+
+export async function upsertSkills(
+  db: SupabaseClient,
+  rows: SkillRow[],
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await db
+      .from("skills")
+      .upsert(rows.slice(i, i + 200), { onConflict: "id" });
+    if (error) throw new Error(`skills upsert: ${error.message}`);
+  }
+}
+
+export async function upsertMcpServers(
+  db: SupabaseClient,
+  rows: McpServerRow[],
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += 300) {
+    const { error } = await db
+      .from("mcp_servers")
+      .upsert(rows.slice(i, i + 300), { onConflict: "name" });
+    if (error) throw new Error(`mcp_servers upsert: ${error.message}`);
+  }
+}
+
+export interface GuideMatch {
+  source: string;
+  domain: string;
+  track: string | null;
+  node_id: string | null;
+  title: string;
+  body: string;
+  links: { type: string; label: string; url: string }[];
+  position: number;
+  license: string | null;
+  tokens: number;
+  score: number;
+}
+
+export async function searchGuides(
+  db: SupabaseClient,
+  opts: {
+    query: string;
+    domain?: string | null;
+    embedding?: number[] | null;
+    limit?: number;
+    fast?: boolean;
+  },
+): Promise<GuideMatch[]> {
+  const { data, error } = await db.rpc("search_guides", {
+    p_query: opts.query,
+    p_domain: opts.domain ?? null,
+    p_embedding: opts.embedding ?? null,
+    p_limit: opts.limit ?? 25,
+    p_fast: opts.fast ?? false,
+  });
+  if (error) throw new Error(`search_guides: ${error.message}`);
+  return (data as GuideMatch[]) ?? [];
+}
+
+export interface SkillMatch {
+  id: string;
+  name: string;
+  description: string | null;
+  source: string;
+  repo_url: string | null;
+  installs: number;
+  license: string | null;
+  trust: Record<string, unknown>;
+  tokens: number;
+  score: number;
+}
+
+export async function searchSkillsRpc(
+  db: SupabaseClient,
+  opts: {
+    query: string;
+    embedding?: number[] | null;
+    limit?: number;
+    fast?: boolean;
+  },
+): Promise<SkillMatch[]> {
+  const { data, error } = await db.rpc("search_skills", {
+    p_query: opts.query,
+    p_embedding: opts.embedding ?? null,
+    p_limit: opts.limit ?? 15,
+    p_fast: opts.fast ?? false,
+  });
+  if (error) throw new Error(`search_skills: ${error.message}`);
+  return (data as SkillMatch[]) ?? [];
+}
+
+export async function getSkill(
+  db: SupabaseClient,
+  id: string,
+): Promise<SkillRow | null> {
+  const { data, error } = await db.from("skills").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(`get skill: ${error.message}`);
+  return (data as SkillRow) ?? null;
+}
+
+export async function searchMcpServers(
+  db: SupabaseClient,
+  query: string,
+  limit = 20,
+): Promise<McpServerRow[]> {
+  const { data, error } = await db
+    .from("mcp_servers")
+    .select("*")
+    .or(`name.ilike.%${query.replace(/[%,']/g, "")}%,description.ilike.%${query.replace(/[%,']/g, "")}%`)
+    .order("use_count", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`mcp search: ${error.message}`);
+  return (data as McpServerRow[]) ?? [];
+}
+
+export async function listGuideDomains(
+  db: SupabaseClient,
+): Promise<{ domain: string; source: string; count: number }[]> {
+  const { data, error } = await db
+    .from("guides")
+    .select("domain, source");
+  if (error) throw new Error(`guide domains: ${error.message}`);
+  const map = new Map<string, number>();
+  for (const row of (data as { domain: string; source: string }[])) {
+    const key = `${row.domain}::${row.source}`;
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  return [...map.entries()].map(([k, count]) => {
+    const [domain, source] = k.split("::");
+    return { domain: domain!, source: source!, count };
+  });
 }
 
 // ── Health ───────────────────────────────────────────────────────────
