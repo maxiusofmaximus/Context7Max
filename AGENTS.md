@@ -36,6 +36,10 @@ CLI + MCP a agentes de IA.
 - tsquery se construye con semántica OR (términos relevantes), no AND.
 - Respuestas de API compatibles con Context7 v2 (`{error, message}`).
 - Snippets y guías SIEMPRE verbatim con provenance y `license` registrada.
+- **RLS OBLIGATORIA**: toda tabla nueva en una migración DEBE incluir
+  `alter table ... enable row level security;` (el aviso de Supabase de
+  sept-2026 vino de olvidarlo en 0004). Sin policies = deny-all = correcto
+  (todo el acceso vía service_role server-side).
 - Secrets por env; nunca en código. `SUPABASE_SERVICE_ROLE_KEY` solo server-side.
 
 ## Comandos
