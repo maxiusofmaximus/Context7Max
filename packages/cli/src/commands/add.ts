@@ -9,9 +9,33 @@ interface AddOptions {
   type?: string;
   version?: string;
   noEmbed?: boolean;
+  pack?: string;
 }
 
-export const cmdAdd = wrapCmd(async (url: string, opts: AddOptions) => {
+export const cmdAdd = wrapCmd(async (url: string | undefined, opts: AddOptions) => {
+  // ── pack mode: indexar un dominio canónico completo ──
+  if (opts.pack) {
+    const { DOMAIN_SOURCES } = await import("@ctx7max/core");
+    const sources = DOMAIN_SOURCES[opts.pack] as string[] | undefined;
+    if (!sources) {
+      const domains = Object.keys(DOMAIN_SOURCES).join(", ");
+      throw new Error(`Pack desconocido "${opts.pack}". Disponibles: ${domains}`);
+    }
+    console.log(pc.bold(`\n📦 Pack "${opts.pack}" — ${sources.length} fuentes\n`));
+    let ok = 0, failed = 0;
+    for (const src of sources) {
+      try {
+        await cmdAdd(src, { ...opts, pack: undefined });
+        ok++;
+      } catch (err) {
+        failed++;
+        console.error(pc.red(`  ✖ ${src}: ${(err as Error).message}`));
+      }
+    }
+    console.log(pc.bold(`\nPack "${opts.pack}": ${ok} ok, ${failed} fallidas`));
+    return;
+  }
+  if (!url) throw new Error("Falta la URL. Uso: ctx7max add <url> o --pack <dominio>");
   if (opts.remote) {
     const res = (await addRemote(url, opts.type)) as { status: string; dispatched: boolean };
     console.log(pc.green(`✓ Ingesta encolada para ${url}`));

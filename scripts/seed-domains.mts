@@ -1,40 +1,27 @@
 /**
- * Seed de dominios: añade las fuentes canónicas (verificadas en la
- * investigación v3) al catálogo con su dominio, para que `library`
- * las resuelva y la ingesta lazy las indexe al primer uso.
+ * Seed de dominios: añade las fuentes canónicas al catálogo con su dominio,
+ * usando la fuente única de verdad: DOMAIN_SOURCES de @ctx7max/core
+ * (la misma que usa `ctx7max add --pack <dominio>`).
  *
- * Uso:
- *   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm tsx scripts/seed-domains.mts
+ * Uso: pnpm tsx scripts/seed-domains.mts
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createDb, upsertCatalog, type CatalogRow, type DbEnv } from "@ctx7max/core";
+import { createDb, upsertCatalog, DOMAIN_SOURCES, type CatalogRow, type DbEnv } from "@ctx7max/core";
 
 const cfg = JSON.parse(
-  readFileSync(
-    join(process.env.APPDATA ?? "", "ctx7max", "config.json"),
-    "utf8",
-  ),
+  readFileSync(join(process.env.APPDATA ?? "", "ctx7max", "config.json"), "utf8"),
 ) as Record<string, string>;
 const env: DbEnv = {
   supabaseUrl: process.env.SUPABASE_URL ?? cfg.supabaseUrl ?? "",
-  serviceRoleKey:
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? cfg.supabaseServiceRoleKey ?? "",
+  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? cfg.supabaseServiceRoleKey ?? "",
 };
-if (!env.supabaseUrl || !env.serviceRoleKey) {
-  console.error("Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
-  process.exit(1);
-}
-
-const raw = JSON.parse(
-  readFileSync(new URL("./dominio-fuentes.json", import.meta.url), "utf8"),
-) as Record<string, string[]>;
 
 function toCatalogRow(domain: string, url: string): CatalogRow {
   if (url.includes("github.com")) {
     const m = url.match(/github\.com\/([^/]+)\/([^/#?]+)/)!;
     return {
-      id: `/${m[1]}/${m[2]!}`,
+      id: `/${m[1]}/${m[2]!.replace(/\.git$/, "")}`,
       title: m[2]!.replace(/[-_]+/g, " "),
       description: `Fuente canónica de ${domain}`,
       source_type: "github",
@@ -70,11 +57,11 @@ function toCatalogRow(domain: string, url: string): CatalogRow {
 }
 
 const rows: CatalogRow[] = [];
-for (const [domain, urls] of Object.entries(raw)) {
+for (const [domain, urls] of Object.entries(DOMAIN_SOURCES)) {
   for (const url of urls) rows.push(toCatalogRow(domain, url));
 }
 const seen = new Set<string>();
 const unique = rows.filter((r) => !seen.has(r.id) && seen.add(r.id));
 
 await upsertCatalog(createDb(env), unique);
-console.log(`✓ ${unique.length} fuentes de dominios añadidas al catálogo`);
+console.log(`✓ ${unique.length} fuentes de dominios en el catálogo`);

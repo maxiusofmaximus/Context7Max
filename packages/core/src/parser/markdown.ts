@@ -22,11 +22,39 @@ const JSX_INLINE_OPEN_RE = /<(\/?)[A-Za-z][A-Za-z0-9._-]*(?:\s[^<>]*?)?>/g;
 const JSX_EXPR_RE = /^\{[^}\n]*\}$/gm;
 
 export function stripMdx(content: string): string {
-  return content
-    .replace(IMPORT_EXPORT_RE, "")
-    .replace(JSX_EXPR_RE, "")
-    .replace(JSX_TAG_LINE_RE, "")
-    .replace(JSX_INLINE_OPEN_RE, "");
+  // Nunca tocar el interior de fences de código (```...```): es verbatim.
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  let fenceMarker = "```";
+  for (const raw of lines) {
+    const fenceMatch = raw.match(/^(\s*)(`{3,}|~{3,})(.*)$/);
+    if (fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = fenceMatch[2]!;
+        out.push(raw);
+        continue;
+      }
+      if (raw.trimStart().startsWith(fenceMarker.slice(0, 3))) {
+        inFence = false;
+        out.push(raw);
+        continue;
+      }
+    }
+    if (inFence) {
+      out.push(raw);
+      continue;
+    }
+    out.push(
+      raw
+        .replace(IMPORT_EXPORT_RE, "")
+        .replace(JSX_EXPR_RE, "")
+        .replace(JSX_TAG_LINE_RE, "")
+        .replace(JSX_INLINE_OPEN_RE, ""),
+    );
+  }
+  return out.join("\n");
 }
 
 function toPlainText(node: Content | Root): string {

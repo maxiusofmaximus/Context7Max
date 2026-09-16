@@ -50,13 +50,14 @@ program
 
 program
   .command("add")
-  .description("Indexa una librería/docs: GitHub repo, llms.txt URL, website u OpenAPI")
-  .argument("<url>")
-  .option("--type <kind>", "github | llmstxt | website | openapi (auto por defecto)")
-  .option("--version <ref>", "tag o branch concreta (GitHub)")
+  .description("Indexa una librería/docs: GitHub repo, llms.txt, website, OpenAPI, git, PDF, wiki")
+  .argument("[url]")
+  .option("--type <kind>", "github | llmstxt | website | openapi | git | pdf | wiki")
+  .option("--version <ref>", "tag o branch concreta (GitHub/git)")
   .option("--remote", "encola en el worker (GitHub Action) en vez de ingestar local")
   .option("--no-embed", "saltar embeddings (solo FTS)")
-  .action(cmdAdd);
+  .option("--pack <dominio>", "indexar todas las fuentes canónicas de un dominio")
+  .action((url, opts) => cmdAdd(url as string | undefined, opts));
 
 program
   .command("preview")
@@ -152,6 +153,14 @@ program
   .description("Busca servidores MCP en los registros indexados")
   .argument("<query>")
   .action(cmdMcps);
+
+program
+  .command("reembed")
+  .description("Re-vectoriza filas que quedaron sin embedding (barre huecos de ingestas anteriores)")
+  .action(async () => {
+    const { cmdReembed } = await import("./commands/kb.js");
+    await cmdReembed();
+  });
 
 program
   .command("ingest")

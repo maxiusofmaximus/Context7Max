@@ -36,5 +36,8 @@
     "supabase",
     "vercel"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0"
+  }
 }

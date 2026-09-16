@@ -168,3 +168,14 @@ export async function runServer(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
+
+// Ejecución directa (bin stdio server)
+const isMain =
+  typeof process.argv[1] === "string" &&
+  /server\.(js|ts)$/.test(process.argv[1].replace(/\\/g, "/"));
+if (isMain) {
+  runServer().catch((err) => {
+    console.error("MCP fatal:", err);
+    process.exit(1);
+  });
+}

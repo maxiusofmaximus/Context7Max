@@ -185,6 +185,25 @@ export const cmdMcps = wrapCmd(async (query: string) => {
   }
 });
 
+// ── reembed (admin, local): rellena embeddings que faltan ───────────
+
+export const cmdReembed = wrapCmd(async () => {
+  const cfg = loadConfig();
+  if (!cfg.supabaseUrl || !cfg.supabaseServiceRoleKey) {
+    throw new Error("Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (ctx7max config)");
+  }
+  const { reembedMissing } = await import("@ctx7max/ingestor");
+  console.log(pc.bold("\nRe-embediendo filas sin vector…\n"));
+  const stats = await reembedMissing({
+    env: { supabaseUrl: cfg.supabaseUrl, serviceRoleKey: cfg.supabaseServiceRoleKey },
+    onLog: (m) => console.log(pc.dim(m)),
+  });
+  console.log(pc.bold("\nResultado:"));
+  for (const s of stats) {
+    console.log(`  ${pc.cyan(s.table)}: ${pc.green(String(s.updated))} actualizadas · ${pc.dim(`${s.failed} fallidas`)}`);
+  }
+});
+
 // ── ingest (admin, local) ───────────────────────────────────────────
 
 export const cmdIngest = wrapCmd(

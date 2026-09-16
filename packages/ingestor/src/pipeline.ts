@@ -2,7 +2,8 @@ import {
   createDb,
   createJob,
   deleteSnippets,
-  embedTexts,
+  embedSmart,
+  getEmbeddingCache,
   insertCodeSnippets,
   insertInfoSnippets,
   parseDocument,
@@ -255,19 +256,43 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
         : codeRows;
     const cappedInfo = infoRows.slice(0, Math.max(1500, maxSnippets));
 
-    // 6) embeddings
+    // 6) embeddings — incremental: solo se re-embeden los snippets cuyo
+    // contenido cambió (content_hash no presente en la versión anterior).
     let embedded = 0;
     if (doEmbed) {
       await updateJob(db, jobId, { stage: "embedding" });
       await setLibraryState(db, libraryId, "embedding");
-      const codeVecs = await embedTexts(opts.env, cappedCode.map(embedTextsForCode));
-      cappedCode.forEach((row, i) => {
+      const [codeCache, infoCache] = await Promise.all([
+        getEmbeddingCache(db, "code_snippets", libraryId, version),
+        getEmbeddingCache(db, "info_snippets", libraryId, version),
+      ]);
+      const freshCode = cappedCode.filter((r) => {
+        const cached = codeCache.get(r.content_hash);
+        if (cached) {
+          r.embedding = cached;
+          embedded++;
+          return false;
+        }
+        return true;
+      });
+      const freshInfo = cappedInfo.filter((r) => {
+        const cached = infoCache.get(r.content_hash);
+        if (cached) {
+          r.embedding = cached;
+          embedded++;
+          return false;
+        }
+        return true;
+      });
+      const codeVecs = await embedSmart(opts.env, freshCode.map(embedTextsForCode));
+      freshCode.forEach((row, i) => {
         row.embedding = codeVecs[i] ?? null;
         if (row.embedding) embedded++;
       });
-      const infoVecs = await embedTexts(opts.env, cappedInfo.map(embedTextsForInfo));
-      cappedInfo.forEach((row, i) => {
+      const infoVecs = await embedSmart(opts.env, freshInfo.map(embedTextsForInfo));
+      freshInfo.forEach((row, i) => {
         row.embedding = infoVecs[i] ?? null;
+        if (row.embedding) embedded++;
       });
     }
 
@@ -308,6 +333,7 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
       },
     });
 
+    const totalRows = cappedCode.length + cappedInfo.length;
     return {
       libraryId,
       state: "finalized",
@@ -315,7 +341,7 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
       codeSnippets: cappedCode.length,
       infoSnippets: cappedInfo.length,
       totalTokens,
-      embeddedPct: cappedCode.length ? Math.round((embedded / cappedCode.length) * 100) : 0,
+      embeddedPct: totalRows ? Math.min(100, Math.round((embedded / totalRows) * 100)) : 0,
     };
   } catch (err) {
     const message = (err as Error).message;

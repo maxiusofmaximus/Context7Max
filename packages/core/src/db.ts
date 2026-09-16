@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { hasLocalEmbeddings } from "./embed-local.js";
 import type {
   CatalogRow,
   CodeSnippetRow,
@@ -110,6 +111,41 @@ export async function embedQuery(
 ): Promise<number[] | null> {
   const [v] = await embedTexts(env, [text]);
   return v ?? null;
+}
+
+// ── Cascade: local (gte-small, ilimitado) → Edge Function (sin modelo local) ──
+
+export type EmbedProvider = "auto" | "local" | "edge";
+
+/**
+ * Smart embedding cascade:
+ *  - provider=edge → Edge Function (consultas serverless)
+ *  - provider=local → transformes.js local (misma gte-small)
+ *  - provider=auto → local si el paquete está disponible, si no edge
+ */
+export async function embedSmart(
+  env: DbEnv,
+  texts: string[],
+  provider: EmbedProvider = "auto",
+  onProgress?: (done: number, total: number) => void,
+): Promise<(number[] | null)[]> {
+  const mode =
+    provider === "local" || provider === "edge"
+      ? provider
+      : (await hasLocalEmbeddings())
+        ? "local"
+        : "edge";
+  if (mode === "local") {
+    try {
+      const { embedTextsLocal } = await import("./embed-local.js");
+      return await embedTextsLocal(texts, onProgress);
+    } catch (err) {
+      console.warn(
+        `[ctx7max] embeddings locales fallaron (${(err as Error).message}); fallback a Edge Function`,
+      );
+    }
+  }
+  return embedTexts(env, texts);
 }
 
 // ── Catalog ──────────────────────────────────────────────────────────
@@ -363,6 +399,92 @@ export async function matchContext(
   });
   if (error) throw new Error(`match_context: ${error.message}`);
   return data as MatchContextResult;
+}
+
+// ── Embedding refresh helpers ────────────────────────────────────────
+
+/** Existing content_hash → embedding cache for incremental refresh. */
+export async function getEmbeddingCache(
+  db: SupabaseClient,
+  table: "code_snippets" | "info_snippets",
+  libraryId: string,
+  version: string,
+): Promise<Map<string, number[]>> {
+  const cache = new Map<string, number[]>();
+  let from = 0;
+  for (;;) {
+    const { data, error } = await db
+      .from(table)
+      .select("content_hash, embedding")
+      .eq("library_id", libraryId)
+      .eq("version", version)
+      .not("embedding", "is", null)
+      .range(from, from + 999);
+    if (error) throw new Error(`embedding cache: ${error.message}`);
+    for (const row of data ?? []) {
+      if (row.embedding) cache.set(row.content_hash as string, row.embedding as number[]);
+    }
+    if ((data?.length ?? 0) < 1000) break;
+    from += 1000;
+  }
+  return cache;
+}
+
+/** Rows with NULL embedding, for re-vectorization sweeps. */
+export async function getRowsWithoutEmbedding(
+  db: SupabaseClient,
+  table: "code_snippets" | "info_snippets" | "guides" | "skills",
+  limit: number,
+): Promise<{ id: string | number; body: string; title?: string }[]> {
+  const cols =
+    table === "skills"
+      ? "id,name,description,body"
+      : table === "guides"
+        ? "id,title,body,domain,track"
+        : table === "info_snippets"
+          ? "id,page_title,content,breadcrumb"
+          : "id,title,description,breadcrumb,code";
+  const { data, error } = await db
+    .from(table)
+    .select(cols)
+    .is("embedding", null)
+    .limit(limit);
+  if (error) throw new Error(`null-embedding fetch ${table}: ${error.message}`);
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => {
+    const code = (r.code as string) ?? "";
+    const body = (r.body as string) ?? (r.content as string) ?? "";
+    const parts = [
+      table === "skills" || table === "guides" ? null : (r.breadcrumb as string),
+      (r.title as string) ?? (r.name as string) ?? (r.page_title as string) ?? "",
+      (r.description as string) ?? "",
+      [code, body].filter(Boolean).join("\n").slice(0, 900),
+    ];
+    return {
+      id: r.id as string | number,
+      title: ((r.title as string) ?? (r.name as string) ?? (r.page_title as string) ?? "") as string,
+      body: parts.filter(Boolean).join("\n").slice(0, 1100),
+    };
+  });
+}
+
+export async function upsertEmbeddings(
+  db: SupabaseClient,
+  table: "code_snippets" | "info_snippets" | "guides" | "skills",
+  updates: { id: string | number; embedding: number[] }[],
+): Promise<void> {
+  // PostgREST: update per-row (ids heterogéneos) — paralelo moderado
+  const CHUNK = 8;
+  for (let i = 0; i < updates.length; i += CHUNK) {
+    await Promise.all(
+      updates.slice(i, i + CHUNK).map(async (u) => {
+        const { error } = await db
+          .from(table)
+          .update({ embedding: u.embedding })
+          .eq("id", u.id as never);
+        if (error) throw new Error(`embedding update ${table}: ${error.message}`);
+      }),
+    );
+  }
 }
 
 // ── Guides / Skills / MCP (capas de conocimiento v3) ────────────────

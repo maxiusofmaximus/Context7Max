@@ -4,3 +4,6 @@ packages:
 
 allowBuilds:
   esbuild: true
+  onnxruntime-node: true
+  sharp: true
+  protobufjs: true

@@ -1,8 +1,10 @@
 import {
   createDb,
   createJob,
-  embedTexts,
+  embedSmart,
+  getRowsWithoutEmbedding,
   updateJob,
+  upsertEmbeddings,
   upsertGuides,
   upsertMcpServers,
   upsertSkills,
@@ -12,6 +14,7 @@ import {
   type DbEnv,
   type GuideRow,
 } from "@ctx7max/core";
+import { sleep } from "./util.js";
 import { GUIDE_FETCHERS, type GuideSourceName, GUIDE_SOURCES } from "./sources/guides.js";
 import {
   fetchGitHubSkillRepos,
@@ -81,7 +84,7 @@ export async function ingestGuides(
     for (let i = 0; i < rows.length; i += CHUNK) {
       const chunk = rows.slice(i, i + CHUNK);
       if (doEmbed) {
-        const vecs = await embedTexts(opts.env, chunk.map(guideEmbedText));
+        const vecs = await embedSmart(opts.env, chunk.map(guideEmbedText));
         chunk.forEach((r, j) => {
           r.embedding = vecs[j] ?? null;
         });
@@ -134,7 +137,7 @@ export async function ingestSkills(opts: KnowledgeIngestOptions): Promise<{ tota
 
   const rows = [...ui, ...gh, ...sh].map(toSkillRow);
   if (doEmbed) {
-    const vecs = await embedTexts(
+    const vecs = await embedSmart(
       opts.env,
       rows.map((r) => [r.name, r.description, r.body.slice(0, 700)].filter(Boolean).join("\n").slice(0, 1200)),
     );
@@ -169,3 +172,97 @@ export async function ingestMcpServers(opts: KnowledgeIngestOptions): Promise<{ 
 }
 
 export { GUIDE_SOURCES };
+
+// ── Reembed: recupera filas que quedaron sin vector ─────────────────
+
+const REEMBED_TABLES = ["code_snippets", "info_snippets", "guides", "skills"] as const;
+const REEMBED_PAGE = 160;
+const REEMBED_BATCH = 4;
+
+export interface ReembedStats {
+  table: string;
+  updated: number;
+  failed: number;
+}
+
+/** LLamada paciente a la Edge Function: 4 textos, hasta 4 reintentos. */
+async function embedBatchPatient(
+  env: DbEnv,
+  texts: string[],
+): Promise<(number[] | null)[]> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(`${env.supabaseUrl}/functions/v1/embed`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.serviceRoleKey}`,
+        },
+        body: JSON.stringify({ inputs: texts }),
+      });
+      if (!res.ok) throw new Error(`embed ${res.status}`);
+      const data = (await res.json()) as { embeddings: number[][] };
+      if (Array.isArray(data.embeddings)) return data.embeddings;
+    } catch {
+      // reintenta
+    }
+    await sleep(1500 * (attempt + 1));
+  }
+  return texts.map(() => null);
+}
+
+/**
+ * Re-vectoriza filas con embedding NULL. Secuencial, paciente y CON cooldown
+ * entre lotes: la Edge Function comparte CPU en el free tier; el paralelismo
+ * la satura y deja huecos.
+ */
+export async function reembedMissing(
+  opts: KnowledgeIngestOptions,
+): Promise<ReembedStats[]> {
+  const db = createDb(opts.env);
+  const log = opts.onLog ?? (() => {});
+  const stats: ReembedStats[] = [];
+
+  for (const table of REEMBED_TABLES) {
+    let updated = 0;
+    let failed = 0;
+    let consecutiveEmpty = 0;
+    for (let round = 0; round < 400; round++) {
+      const rows = await getRowsWithoutEmbedding(db, table, REEMBED_PAGE);
+      if (rows.length === 0) break;
+
+      for (let i = 0; i < rows.length; i += REEMBED_BATCH) {
+        const slice = rows.slice(i, i + REEMBED_BATCH);
+        const vecs = await embedBatchPatient(
+          opts.env,
+          slice.map((r) => r.body),
+        );
+        const updates = slice
+          .map((r, j) => ({ id: r.id, embedding: vecs[j] }))
+          .filter((u): u is { id: string | number; embedding: number[] } => !!u.embedding);
+        if (updates.length === 0) {
+          failed += slice.length;
+          consecutiveEmpty++;
+          if (consecutiveEmpty >= 5) {
+            log(`  ${table}: edge saturada 5 lotes seguidos — pausa 60s`);
+            await sleep(60_000);
+            consecutiveEmpty = 0;
+          }
+          continue;
+        }
+        consecutiveEmpty = 0;
+        failed -= 0;
+        await upsertEmbeddings(db, table, updates);
+        updated += updates.length;
+        await sleep(500); // cooldown entre lotes
+      }
+      if (updated % 800 < REEMBED_PAGE) {
+        log(`  ${table}: ${updated} re-vectorizadas…`);
+      }
+    }
+    stats.push({ table, updated, failed });
+  }
+  return stats;
+}
+
+export { REEMBED_TABLES };

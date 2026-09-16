@@ -16,7 +16,8 @@
   "dependencies": {
     "@ctx7max/core": "workspace:*",
     "@ctx7max/ingestor": "workspace:*",
-    "@ctx7max/mcp": "workspace:*"
+    "@ctx7max/mcp": "workspace:*",
+    "@huggingface/transformers": "^3.7.2"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

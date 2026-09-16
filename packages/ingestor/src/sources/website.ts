@@ -83,12 +83,70 @@ async function tryLlmsTxt(origin: string): Promise<DocFile[] | null> {
   return null;
 }
 
+/** Algunos sitios (p.ej. developer.apple.com) sirven Markdown añadiendo .md */
+async function tryDotMarkdown(url: string): Promise<DocFile[] | null> {
+  const root = url.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${root}.md`, {
+      headers: { Accept: "text/markdown, text/plain, */*" },
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text || /<html[\s>]/i.test(text.slice(0, 200))) return null;
+    if (text.length < 500) return null;
+
+    const files: DocFile[] = [
+      {
+        path: `${new URL(root).pathname.replace(/[^\w/-]+/g, "-") || "index"}.md`,
+        content: text,
+        sourceUrl: root,
+      },
+    ];
+
+    // seguir enlaces internos de docs del mismo subárbol (1 nivel)
+    const basePath = new URL(root).pathname.replace(/\/[^/]*$/, "");
+    const links = [...text.matchAll(/\]\(((?:\/|https?:\/\/)[^)\s]+)\)/g)]
+      .map((m) => m[1]!)
+      .filter((l) => l.startsWith(basePath) || l.includes(origin + basePath))
+      .filter((l) => !l.endsWith(".md"))
+      .map((l) => (l.startsWith("http") ? l : `${new URL(root).origin}${l}`));
+    const unique = [...new Set(links)].slice(0, 40);
+    for (const link of unique) {
+      try {
+        const child = await fetch(`${link.replace(/\/+$/, "")}.md`, {
+          headers: { Accept: "text/markdown, */*" },
+        });
+        if (!child.ok) continue;
+        const childText = await child.text();
+        if (childText.length < 500 || /<html[\s>]/i.test(childText.slice(0, 200))) continue;
+        files.push({
+          path: `${new URL(link).pathname.replace(/[^\w/-]+/g, "-")}.md`,
+          content: childText,
+          sourceUrl: link,
+        });
+      } catch { /* skip */ }
+    }
+    return files.length >= 1 ? files : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchWebsiteSource(url: string): Promise<IngestSourceResult> {
   const origin = new URL(url).origin;
   const titleGuess = new URL(origin).hostname.replace(/^www\./, "");
 
-  // 1) llms.txt cascade (cheapest, cleanest)
+  // 0) truco .md (Apple developer docs y afines: Markdown directo por URL)
   let files: DocFile[] | null = null;
+  try {
+    files = await tryDotMarkdown(url);
+    if (files && files.length > 0) {
+      // si el truco dio un buen corpus, no hace falta rastrear HTML
+      if (files.length >= 4) return buildResult(url, origin, titleGuess, files);
+    }
+  } catch { /* passthrough */ }
+
+  // 1) llms.txt cascade (cheapest, cleanest)
   try {
     files = await tryLlmsTxt(origin);
   } catch { /* fall through to crawl */ }
@@ -127,12 +185,21 @@ export async function fetchWebsiteSource(url: string): Promise<IngestSourceResul
     files = crawled;
   }
 
+  return buildResult(url, origin, titleGuess, files);
+}
+
+function buildResult(
+  url: string,
+  origin: string,
+  titleGuess: string,
+  files: DocFile[],
+): IngestSourceResult {
   return {
     libraryId: `/websites/${titleGuess.replace(/\./g, "-")}`,
     title: titleGuess,
     description: `Documentation crawled from ${origin}`,
     sourceType: "website",
-    sourceUrl: origin,
+    sourceUrl: url,
     branch: null,
     repoSha: hashContent(files.map((f) => f.content).join()).slice(0, 12),
     license: null,

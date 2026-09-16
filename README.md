@@ -3,7 +3,37 @@
 **Tu propio Context7 — ilimitado, gratis y self-hosted.**
 Supabase (Postgres + pgvector + Edge Functions) · Vercel (API) · GitHub (repo + Actions).
 
-Context7Max indexa la documentación real de librerías, frameworks, CLIs y APIs, extrae los **ejemplos de código verbatim** y los sirve a tu agente de IA con búsqueda híbrida (vectorial + full-text). Así el agente **copia código real de la documentación** en vez de alucinar APIs viejas — y sin los límites de cuota de Context7.
+Context7Max indexa la documentación real de librerías, frameworks, CLIs y APIs, extrae los **ejemplos de código verbatim** y los sirve a tu agente de IA con búsqueda híbrida (vectorial + full-text). Y además es una **base de conocimiento estructurada del desarrollo**: guías paso a paso por dominio (roadmap.sh, OSSU, Odin, freeCodeCamp, FullStackOpen, missing-semester), **skills de agentes** instalables y un registro de **servidores MCP** — todo consultable por tu agente. Así el agente **copia código real de la documentación** en vez de alucinar APIs viejas — y sin límites de cuota.
+
+## 🧭 Capas de conocimiento (v3)
+
+```bash
+# Librerías (Context7 clásico)
+ctx7max library "react" "clean up useEffect"
+ctx7max docs /facebook/react "clean up useEffect"
+
+# Guías paso a paso por dominio (53 dominios)
+ctx7max guide "memory paging" --domain osdev
+ctx7max guide "focus navigation" --domain android
+ctx7max guides                       # mapa de dominios
+
+# Skills de agente
+ctx7max skill search "shadcn"
+ctx7max skill install <id>           # instala en tu agente
+
+# Servidores MCP registrados
+ctx7max mcps "postgres"
+
+# Packs canónicos por dominio (documentación)
+ctx7max add --pack android           # 7 fuentes oficiales de una vez
+ctx7max add --pack gamedev
+```
+
+> **Embeddings sin cuota**: el CLI usa `gte-small` **localmente** (Hugging Face
+> Transformers en tu máquina — mismo modelo que la Edge Function, mismos
+> vectores). La API usa la Edge Function para queries sueltas. Recomendado
+> tras actualizar: `ctx7max reembed` para re-vectorizar lo pendiente con
+> un solo proceso local ilimitado.
 
 ```
 ┌──────────┐   ctx7max library "next.js" "middleware auth"
