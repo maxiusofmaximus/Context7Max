@@ -97,6 +97,23 @@ export const DOMAIN_SOURCES: Record<string, string[]> = {
     "https://wiki.gentoo.org",
     "https://www.linuxfromscratch.org",
   ],
+  cybersecurity: [
+    "https://github.com/OWASP/CheatSheetSeries",
+    "https://github.com/OWASP/Top10",
+    "https://github.com/OWASP/wstg",
+    "https://github.com/OWASP/ASVS",
+    "https://github.com/OWASP/mastg",
+    "https://github.com/HackTricks-wiki/hacktricks",
+    "https://github.com/swisskyrepo/PayloadsAllTheThings",
+    "https://github.com/trimstray/the-book-of-secret-knowledge",
+    "https://github.com/sbilly/awesome-security",
+    "https://github.com/redcanaryco/atomic-red-team",
+    "https://github.com/SigmaHQ/sigma",
+    "https://github.com/trailofbits/ctf",
+    "https://github.com/osirislab/ctf101",
+    "https://github.com/guyinatuxedo/nightmare",
+    "https://github.com/mitre-attack/attack-stix-data",
+  ],
 };
 
 export type DomainPack = keyof typeof DOMAIN_SOURCES;

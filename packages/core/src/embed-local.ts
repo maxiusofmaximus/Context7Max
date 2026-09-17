@@ -14,16 +14,19 @@ type FeatureExtractor = (
 
 let pipePromise: Promise<FeatureExtractor> | null = null;
 
+/** Nombre variable para que los bundlers NO resuelvan/rewritan el import. */
+const HF_PKG = "@huggingface/transformers";
+
 async function getPipeline(): Promise<FeatureExtractor> {
   pipePromise ??= (async () => {
-    const mod: unknown = await import("@huggingface/transformers");
+    const mod: unknown = await import(HF_PKG);
     const anyMod = mod as {
       pipeline?: (task: string, model: string) => Promise<unknown>;
       default?: { pipeline?: (task: string, model: string) => Promise<unknown> };
     };
     const pipeline = anyMod.pipeline ?? anyMod.default?.pipeline;
     if (!pipeline) {
-      throw new Error("@huggingface/transformers no expone pipeline en este bundle");
+      throw new Error("@huggingface/transformers no expone pipeline en este entorno");
     }
     return (await pipeline(
       "feature-extraction",

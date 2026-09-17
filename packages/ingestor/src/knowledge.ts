@@ -185,30 +185,21 @@ export interface ReembedStats {
   failed: number;
 }
 
-/** LLamada paciente a la Edge Function: 4 textos, hasta 4 reintentos. */
+/** Lote paciente vía embedSmart (local si está disponible; edge si no). */
 async function embedBatchPatient(
   env: DbEnv,
   texts: string[],
 ): Promise<(number[] | null)[]> {
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(`${env.supabaseUrl}/functions/v1/embed`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${env.serviceRoleKey}`,
-        },
-        body: JSON.stringify({ inputs: texts }),
-      });
-      if (!res.ok) throw new Error(`embed ${res.status}`);
-      const data = (await res.json()) as { embeddings: number[][] };
-      if (Array.isArray(data.embeddings)) return data.embeddings;
+      const vecs = await embedSmart(env, texts, "auto");
+      if (vecs.some((v) => v !== null)) return vecs;
     } catch {
-      // reintenta
+      // reintenta con cooldown
     }
-    await sleep(1500 * (attempt + 1));
+    await sleep(1000 * (attempt + 1));
   }
-  return texts.map(() => null);
+  return embedSmart(env, texts, "edge").catch(() => texts.map(() => null));
 }
 
 /**
@@ -243,10 +234,11 @@ export async function reembedMissing(
         if (updates.length === 0) {
           failed += slice.length;
           consecutiveEmpty++;
-          if (consecutiveEmpty >= 5) {
-            log(`  ${table}: edge saturada 5 lotes seguidos — pausa 60s`);
-            await sleep(60_000);
+          if (consecutiveEmpty >= 8) {
+            log(`  ${table}: ${slice.length} filas no embebibles (saltadas tras 8 intentos)`);
             consecutiveEmpty = 0;
+            // avanzar: marca para no reintentar en este barrido — se rompe loop
+            break;
           }
           continue;
         }

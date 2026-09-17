@@ -6,13 +6,46 @@ import { fetchGitHubZipFiles } from "./github.js";
 type SkillDraft = Omit<SkillRow, "tokens" | "content_hash" | "embedding">;
 
 const SKILL_REPOS: { owner: string; repo: string; globHint: string }[] = [
+  // originales
   { owner: "anthropics", repo: "skills", globHint: "skills/" },
   { owner: "mattpocock", repo: "skills", globHint: "skills/" },
   { owner: "antfu", repo: "skills", globHint: "skills/" },
   { owner: "obra", repo: "superpowers", globHint: "" },
   { owner: "vercel-labs", repo: "agent-skills", globHint: "" },
+  { owner: "vercel-labs", repo: "skills", globHint: "" },
   { owner: "addyosmani", repo: "agent-skills", globHint: "" },
   { owner: "supabase", repo: "agent-skills", globHint: "" },
+  // ── proveedores cloud / plataformas (oficiales) ──
+  { owner: "cloudflare", repo: "skills", globHint: "skills/" },
+  { owner: "google", repo: "agents-cli", globHint: "skills/" },
+  { owner: "google-gemini", repo: "gemini-skills", globHint: "" },
+  { owner: "firebase", repo: "agent-skills", globHint: "" },
+  { owner: "aws", repo: "agent-toolkit-for-aws", globHint: "" },
+  { owner: "awslabs", repo: "agent-plugins", globHint: "" },
+  { owner: "microsoft", repo: "azure-skills", globHint: "" },
+  { owner: "neondatabase", repo: "agent-skills", globHint: "" },
+  { owner: "auth0", repo: "agent-skills", globHint: "" },
+  { owner: "clerk", repo: "skills", globHint: "" },
+  { owner: "resend", repo: "resend-skills", globHint: "" },
+  { owner: "stripe", repo: "ai", globHint: "" },
+  { owner: "prisma", repo: "skills", globHint: "" },
+  { owner: "hashicorp", repo: "agent-skills", globHint: "" },
+  { owner: "langchain-ai", repo: "langchain-skills", globHint: "" },
+  { owner: "expo", repo: "skills", globHint: "" },
+  { owner: "github", repo: "awesome-copilot", globHint: "" },
+  { owner: "openai", repo: "skills", globHint: "" },
+  // ── ciberseguridad ──
+  { owner: "mukul975", repo: "Anthropic-Cybersecurity-Skills", globHint: "" },
+  { owner: "Masriyan", repo: "Claude-Code-CyberSecurity-Skill", globHint: "" },
+  { owner: "transilienceai", repo: "communitytools", globHint: "" },
+  { owner: "26zl", repo: "cybersec-toolkit", globHint: "" },
+  { owner: "elementalsouls", repo: "Claude-OSINT", globHint: "" },
+  { owner: "gadievron", repo: "raptor", globHint: "" },
+  { owner: "cloudflare", repo: "security-audit-skill", globHint: "" },
+  // ── ciencia/varios top del leaderboard ──
+  { owner: "K-Dense-AI", repo: "scientific-agent-skills", globHint: "" },
+  { owner: "emilkowalski", repo: "skills", globHint: "" },
+  { owner: "coreyhaines31", repo: "marketingskills", globHint: "" },
 ];
 
 /** Frontmatter YAML plano (name/description/licenses) — no full YAML parser. */

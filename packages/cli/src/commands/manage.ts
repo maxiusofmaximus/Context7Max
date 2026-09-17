@@ -1,5 +1,5 @@
 import pc from "picocolors";
-import { createDb, deleteLibrary, getDbEnv, listLibraries as listLibs } from "@ctx7max/core";
+import { createDb, deleteLibrary, listLibraries as listLibs } from "@ctx7max/core";
 import { listLibraries, getStatus, refreshRemote } from "../apiClient.js";
 import { loadConfig } from "../config.js";
 import { wrapCmd } from "./library.js";
@@ -89,7 +89,10 @@ export const cmdRemove = wrapCmd(async (libraryId: string, opts: { yes?: boolean
     console.log(pc.yellow(`Esto eliminará ${libraryId} y todos sus snippets. Repite con --yes`));
     return;
   }
-  const db = createDb(getDbEnv());
+  const db = createDb({
+    supabaseUrl: cfg.supabaseUrl,
+    serviceRoleKey: cfg.supabaseServiceRoleKey,
+  });
   await deleteLibrary(db, libraryId);
   console.log(pc.green(`✓ ${libraryId} eliminada`));
 });

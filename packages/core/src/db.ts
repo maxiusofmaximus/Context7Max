@@ -140,8 +140,10 @@ export async function embedSmart(
       const { embedTextsLocal } = await import("./embed-local.js");
       return await embedTextsLocal(texts, onProgress);
     } catch (err) {
-      console.warn(
-        `[ctx7max] embeddings locales fallaron (${(err as Error).message}); fallback a Edge Function`,
+      console.error(
+        `[ctx7max] embeddings LOCALES fallaron → fallback a Edge Function. Causa: ${
+          err instanceof Error ? err.stack?.split("\n").slice(0, 3).join(" | ") : String(err)
+        }`,
       );
     }
   }
@@ -250,7 +252,9 @@ export async function deleteSnippets(
   }
 }
 
-const INSERT_CHUNK = 400;
+// Lotes moderados: con embeddings (halfvec) + HNSW, chunks grandes tocan
+// el statement_timeout del free tier de Supabase en upserts pesados.
+const INSERT_CHUNK = 150;
 
 export async function insertCodeSnippets(
   db: SupabaseClient,
