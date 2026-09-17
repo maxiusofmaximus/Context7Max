@@ -129,12 +129,18 @@ export async function embedSmart(
   provider: EmbedProvider = "auto",
   onProgress?: (done: number, total: number) => void,
 ): Promise<(number[] | null)[]> {
-  const mode =
-    provider === "local" || provider === "edge"
-      ? provider
-      : (await hasLocalEmbeddings())
-        ? "local"
-        : "edge";
+  let localAvailable = false;
+  if (provider === "local" || provider === "auto") {
+    try {
+      localAvailable = await hasLocalEmbeddings();
+    } catch {
+      localAvailable = false;
+    }
+  }
+  const mode = provider === "edge" ? "edge" : provider === "local" ? "local" : localAvailable ? "local" : "edge";
+  if (process.env.CTX7MAX_DEBUG_EMBED) {
+    console.error(`[embed] provider=${provider} → mode=${mode} (localAvailable=${localAvailable})`);
+  }
   if (mode === "local") {
     try {
       const { embedTextsLocal } = await import("./embed-local.js");

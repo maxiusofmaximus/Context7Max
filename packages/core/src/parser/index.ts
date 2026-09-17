@@ -8,26 +8,37 @@ import { hashContent } from "../hash.js";
 
 export { parseMarkdown, stripMdx, parseRst, parseIpynb, parseAsciidoc };
 
+/**
+ * Limpieza UTF-8: elimina surrogates solitarios (emojis rotos) y NUL —
+ * Postgres rechaza "unsupported Unicode escape sequence" si entran en TEXT.
+ */
+export function sanitizeText(s: string): string {
+  return s
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD")
+    .replace(/\u0000/g, "");
+}
+
 /** Parse any supported doc file into snippets. */
 export function parseDocument(file: DocFile, opts?: Partial<ParseOptions>): ParsedPage {
+  const cleanFile: DocFile = { ...file, content: sanitizeText(file.content) };
   const ext = file.path.toLowerCase().match(/\.[a-z]+$/)?.[0] ?? "";
   const options: ParseOptions = {
     path: file.path,
     sourceUrl: file.sourceUrl,
     ...opts,
-  };
+  }; 
   switch (ext) {
     case ".rst":
-      return parseRst(file.content, options);
+      return parseRst(cleanFile.content, options);
     case ".ipynb":
-      return parseIpynb(file.content, options);
+      return parseIpynb(cleanFile.content, options);
     case ".adoc":
     case ".asciidoc":
-      return parseAsciidoc(file.content, options);
+      return parseAsciidoc(cleanFile.content, options);
     case ".txt":
-      return parsePlainText(file.content, options);
+      return parsePlainText(cleanFile.content, options);
     default:
-      return parseMarkdown(file.content, options);
+      return parseMarkdown(cleanFile.content, options);
   }
 }
 

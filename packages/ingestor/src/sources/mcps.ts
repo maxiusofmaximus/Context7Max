@@ -56,6 +56,21 @@ export async function fetchOfficialMcpRegistry(): Promise<McpServerRow[]> {
 }
 
 /** Smithery registry — public JSON, has useCount popularity signal. */
+/** MCP servers creados por creadores/comunidad que NO están en los registries. */
+export function curatedMcpServers(): McpServerRow[] {
+  return [
+    { name: "coleam00/mcp-crawl4ai-rag", description: "RAG con crawl4ai vía MCP (creación de RAG como servicio)", url: null, repo: "https://github.com/coleam00/mcp-crawl4ai-rag", registry: "curated", verified: true, use_count: 2200 },
+    { name: "coleam00/mcp-mem0", description: "Memoria persistente para agentes vía MCP (mem0)", url: null, repo: "https://github.com/coleam00/mcp-mem0", registry: "curated", verified: true, use_count: 684 },
+    { name: "coleam00/supabase-mcp", description: "Supabase tools como MCP (postgrest, funciones)", url: null, repo: "https://github.com/coleam00/supabase-mcp", registry: "curated", verified: true, use_count: 0 },
+    { name: "coleam00/remote-mcp-server-with-auth", description: "Template MCP remoto con GitHub OAuth", url: null, repo: "https://github.com/coleam00/remote-mcp-server-with-auth", registry: "curated", verified: true, use_count: 0 },
+    { name: "simonw/mcp-explorer", description: "Explorar servidores MCP desde CLI (Simon Willison)", url: null, repo: "https://github.com/simonw/mcp-explorer", registry: "curated", verified: true, use_count: 0 },
+    { name: "simonw/llm-mcp-client", description: "Cliente MCP dentro del CLI `llm` de Simon Willison", url: null, repo: "https://github.com/simonw/llm-mcp-client", registry: "curated", verified: true, use_count: 0 },
+    { name: "Doriandarko/sora-mcp", description: "MCP server para Sora (generación de vídeo) — Pietro Schirano", url: null, repo: "https://github.com/Doriandarko/sora-mcp", registry: "curated", verified: true, use_count: 0 },
+    { name: "jherr/ts-mcp", description: "Demo: MCP server con TanStack Start (Jack Herrington)", url: null, repo: "https://github.com/jherr/ts-mcp", registry: "curated", verified: true, use_count: 0 },
+    { name: "CodelyTV/typescript-mcp-client", description: "Cliente MCP tipado en TypeScript (curso CodelyTV)", url: null, repo: "https://github.com/CodelyTV/typescript-mcp-client", registry: "curated", verified: true, use_count: 0 },
+  ];
+}
+
 export async function fetchSmitheryRegistry(): Promise<McpServerRow[]> {
   const out: McpServerRow[] = [];
   for (let page = 1; page <= 20 && out.length < MAX_ENTRIES; page++) {

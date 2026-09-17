@@ -56,9 +56,10 @@ export async function embedTextsLocal(
 /** true si el paquete está disponible en este entorno (local/CI) */
 export async function hasLocalEmbeddings(): Promise<boolean> {
   try {
-    await import("@huggingface/transformers");
+    await import(HF_PKG);
     return true;
-  } catch {
+  } catch (err) {
+    console.warn(`[ctx7max] hasLocalEmbeddings error: ${(err as Error).message?.slice(0, 200)}`);
     return false;
   }
 }

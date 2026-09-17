@@ -22,7 +22,7 @@ import {
   fetchUiSkills,
   toSkillRow,
 } from "./sources/skills.js";
-import { fetchOfficialMcpRegistry, fetchSmitheryRegistry } from "./sources/mcps.js";
+import { curatedMcpServers, fetchOfficialMcpRegistry, fetchSmitheryRegistry } from "./sources/mcps.js";
 
 export interface KnowledgeIngestOptions {
   env: DbEnv;
@@ -162,7 +162,7 @@ export async function ingestMcpServers(opts: KnowledgeIngestOptions): Promise<{ 
   log(`  ${smithery.length} servidores (smithery)`);
 
   const seen = new Set<string>();
-  const rows = [...official, ...smithery].filter((r) => {
+  const rows = [...curatedMcpServers(), ...official, ...smithery].filter((r) => {
     if (seen.has(r.name)) return false;
     seen.add(r.name);
     return true;

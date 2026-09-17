@@ -46,6 +46,19 @@ const SKILL_REPOS: { owner: string; repo: string; globHint: string }[] = [
   { owner: "K-Dense-AI", repo: "scientific-agent-skills", globHint: "" },
   { owner: "emilkowalski", repo: "skills", globHint: "" },
   { owner: "coreyhaines31", repo: "marketingskills", globHint: "" },
+  // ── creadores de contenido (verificados sep-2026) ──
+  { owner: "midudev", repo: "autoskills", globHint: "registry/" },
+  { owner: "ArisGuimera", repo: "MobiAI-Core", globHint: "skills/" },
+  { owner: "goncy", repo: "skills", globHint: "" },
+  { owner: "Klerith", repo: "fernando-skills", globHint: "skills/" },
+  { owner: "ThePrimeagen", repo: "skills", globHint: "skills/" },
+  { owner: "bradtraversy", repo: "coding-with-ai-course-resources", globHint: "skills/" },
+  { owner: "DavidOndrej", repo: "skills", globHint: "skills/" },
+  { owner: "coleam00", repo: "skills", globHint: "" },
+  { owner: "coleam00", repo: "excalidraw-diagram-skill", globHint: "" },
+  { owner: "coleam00", repo: "second-brain-skills", globHint: "" },
+  { owner: "Doriandarko", repo: "skirano-skills", globHint: "skills/" },
+  { owner: "simonw", repo: "skills", globHint: "skills/" },
 ];
 
 /** Frontmatter YAML plano (name/description/licenses) — no full YAML parser. */
