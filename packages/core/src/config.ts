@@ -173,6 +173,14 @@ export const NOISE_PATTERNS = [
   "skills",
 ];
 
+/** Carpetas que SON un código de idioma ISO (traducciones — solo queremos la fuente primaria) */
+export const LOCALE_SEGMENTS = new Set([
+  "ar", "bg", "bn", "ca", "cs", "da", "de", "el", "es", "et", "fa", "fi",
+  "fr", "hi", "hr", "hu", "id", "it", "ja", "ko", "lt", "lv", "ms", "nl",
+  "no", "pl", "pt", "ro", "ru", "sk", "sl", "sr", "sv", "th", "tr", "uk",
+  "vi", "zh", "zh-cn", "zh-tw", "pt-br", "es-419", "he", "iw",
+]);
+
 /** Folders whose code files may be indexed when includeExamples is on. */
 export const EXAMPLE_FOLDER_HINTS = [
   "example",
@@ -255,6 +263,11 @@ export function shouldIncludePath(
   const lowerName = fileName.toLowerCase();
   const segs = splitPath(path);
   const isRoot = segs.length === 1;
+
+  // 0. locale folder segments at depth >= 1 (translations like `2017/fa/about.md`)
+  for (let i = 1; i < segs.length; i++) {
+    if (LOCALE_SEGMENTS.has(segs[i]!.toLowerCase())) return false;
+  }
 
   // 1. hard noise exclusion
   if (folderPatternsMatch(NOISE_PATTERNS, path)) return false;
