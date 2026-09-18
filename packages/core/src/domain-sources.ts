@@ -77,7 +77,7 @@ export const DOMAIN_SOURCES: Record<string, string[]> = {
     "https://wiki.osdev.org",
   ],
   "kernel-drivers": [
-    "https://github.com/torvalds/linux#Documentation",
+    "https://github.com/torvalds/linux.git#Documentation",
     "https://github.com/bootlin/training-materials",
     "https://www.kernel.org/doc/html/latest/",
   ],
@@ -120,6 +120,27 @@ export const DOMAIN_SOURCES: Record<string, string[]> = {
     "https://github.com/SWE-agent/minimal-agent-tutorial",
     "https://github.com/disler/claude-code-hooks-mastery",
     "https://github.com/xai-org/grok-prompts",
+  ],
+  "agents-frameworks": [
+    // frameworks y herramientas de agentes (creadores verificados sep-2026)
+    "https://github.com/Significant-Gravitas/AutoGPT",
+    "https://github.com/OpenHands/OpenHands",
+    "https://github.com/kortix-ai/suna",
+    "https://github.com/simular-ai/Agent-S",
+    "https://github.com/FoundationAgents/MetaGPT",
+    "https://github.com/huggingface/smolagents",
+    "https://github.com/browser-use/browser-use",
+    "https://github.com/SWE-agent/SWE-agent",
+    "https://github.com/SWE-agent/mini-swe-agent",
+    "https://github.com/openinterpreter/openinterpreter",
+    "https://github.com/Aider-AI/aider",
+    "https://github.com/microsoft/autogen",
+    "https://github.com/pydantic/pydantic-ai",
+    "https://github.com/googleapis/genai-toolbox",
+    "https://github.com/ggml-org/llama.cpp",
+    "https://github.com/joonspk-research/generative_agents",
+    "https://github.com/yoheinakajima/babyagi",
+    "https://github.com/openai/evals",
   ],
   creators: [
     // guías/libros/currículos de agentes-IA creados por creadores
