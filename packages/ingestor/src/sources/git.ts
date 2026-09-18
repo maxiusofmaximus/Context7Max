@@ -3,6 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:f
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { promisify } from "node:util";
+import { fetchGitHubMeta } from "./github.js";
 import {
   CODE_EXTENSIONS,
   DOC_EXTENSIONS,
@@ -50,6 +51,46 @@ export async function fetchGitSource(url: string): Promise<IngestSourceResult> {
         cwd: workDir,
         timeout: 60_000,
       });
+    } else {
+      // Sin subpath: sparse NON-cone que excluye binarios pesados (el 90%
+      // del tamaño de cursos/repos grandes son imágenes/media/modelos).
+      // Combinado con --filter=blob:none, los blobs excluidos no se bajan.
+      await execFileP(
+        "git",
+        [
+          "sparse-checkout",
+          "set",
+          "--no-cone",
+          "*",
+          "!*.png",
+          "!*.jpg",
+          "!*.jpeg",
+          "!*.gif",
+          "!*.webp",
+          "!*.svg",
+          "!*.mp4",
+          "!*.mov",
+          "!*.webm",
+          "!*.zip",
+          "!*.tar",
+          "!*.gz",
+          "!*.7z",
+          "!*.pt",
+          "!*.pth",
+          "!*.bin",
+          "!*.safetensors",
+          "!*.onnx",
+          "!*.parquet",
+          "!*.glb",
+          "!*.woff",
+          "!*.woff2",
+          "!*.ttf",
+          "!*.otf",
+          "!*.ico",
+          "!*.pdf",
+        ],
+        { cwd: workDir, timeout: 60_000 },
+      ).catch(() => {});
     }
     // checkout (sparse o completo); --guess= false para evitar heurísticas
     await execFileP(
@@ -92,7 +133,7 @@ export async function fetchGitSource(url: string): Promise<IngestSourceResult> {
     }
 
     const files: DocFile[] = [];
-    let total = 0;
+  let total = 0;
     walk(subPath ? join(workDir, subPath) : workDir, workDir, (absPath) => {
       if (files.length >= MAX_FILES || total >= MAX_TOTAL_BYTES) return;
       const relPath = relative(workDir, absPath).replace(/\\/g, "/");
@@ -119,17 +160,35 @@ export async function fetchGitSource(url: string): Promise<IngestSourceResult> {
       throw new Error(`No documentation files found in ${repoUrl} (${subPath ?? "root"})`);
     }
 
+    // Metadatos reales cuando el host es GitHub (stars, última versión, license)
+    let stars = 0;
+    let versions: string[] = [];
+    let license: string | null = null;
+    let description = config.description ?? null;
+    if (host === "github.com") {
+      const m = repoUrl.match(/github\.com[:/]([^/]+)\/([^/#?]+?)(?:\.git)?(?:[#@]|$)/);
+      if (m) {
+        try {
+          const { meta, tags } = await fetchGitHubMeta({ owner: m[1]!, repo: m[2]! }, undefined);
+          stars = meta.stargazers_count ?? 0;
+          versions = tags;
+          license = meta.license?.spdx_id ?? null;
+          description = description ?? meta.description;
+        } catch { /* metadata opcional */ }
+      }
+    }
+
     return {
       libraryId,
       title: config.projectTitle ?? repoName,
-      description: config.description ?? `Git repository at ${host}`,
+      description,
       sourceType: "github", // storage-wise identical to github
       sourceUrl: browserBase,
       branch: branch ?? null,
       repoSha: sha,
-      license: null,
-      stars: 0,
-      versions: [],
+      license,
+      stars,
+      versions,
       files,
       rules: config.rules,
       settings: { ...config },

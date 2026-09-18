@@ -63,6 +63,13 @@ export const DOC_EXTENSIONS = [
   ".asciidoc",
   ".txt",
   ".ipynb",
+  // prompt/template repos (xai-org/grok-prompts y similares)
+  ".j2",
+  ".jinja",
+  ".prompt",
+  ".mustache",
+  ".hbs",
+  ".tmpl",
 ] as const;
 
 // ── Default exclusions (mirrors Context7 published defaults) ────────
@@ -158,6 +165,11 @@ export const NOISE_PATTERNS = [
   "scripts",
   "blog",
   "blogs",
+  "translations",
+  "translation",
+  "i18n",
+  "locales",
+  "l10n",
   "*.min.*",
   "*.map",
   ".changeset",
@@ -264,9 +276,15 @@ export function shouldIncludePath(
   const segs = splitPath(path);
   const isRoot = segs.length === 1;
 
-  // 0. locale folder segments at depth >= 1 (translations like `2017/fa/about.md`)
+  // 0. locale folder segments at depth >= 1 (translations like `2017/fa/about.md`,
+  //    `translations/pt-PT/...`)
   for (let i = 1; i < segs.length; i++) {
-    if (LOCALE_SEGMENTS.has(segs[i]!.toLowerCase())) return false;
+    const seg = segs[i]!.toLowerCase();
+    if (LOCALE_SEGMENTS.has(seg)) return false;
+    // region-suffixed: es-es, pt-pt, zh-hans, pt-br… (seg codigo-REGION)
+    if (/^[a-z]{2}-[a-z]{2,4}$/.test(seg) && LOCALE_SEGMENTS.has(seg.split("-")[0]!)) {
+      return false;
+    }
   }
 
   // 1. hard noise exclusion

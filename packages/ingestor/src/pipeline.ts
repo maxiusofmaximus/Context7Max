@@ -238,11 +238,16 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
       }
     }
 
-    // 4) quality gate — replicate Context7's no_code_found behavior
-    if (codeRows.length === 0) {
+    // 4) quality gate — Context7 parity con excepción "prose-only": repos de
+    // prompts/patrones/libros sin código (30+ info chunks) son conocimiento válido.
+    const proseOnly = codeRows.length === 0;
+    if (proseOnly && infoRows.length < 20) {
       await setLibraryState(db, libraryId, "error", "no_code_found: documentation has no code examples");
       await updateJob(db, jobId, { status: "failed", stage: "parsing", message: "no_code_found" });
       throw new Error(`no_code_found: ${libraryId} documentation contains no code snippets`);
+    }
+    if (proseOnly) {
+      log(`  (prose-only: ${infoRows.length} info snippets — aceptado como fuente de conocimiento)`);
     }
 
     // 5) cap snippets (prefer described, then shorter ones — more signal per token)
