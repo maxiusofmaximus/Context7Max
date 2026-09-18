@@ -43,6 +43,13 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
+// ../../packages/core/dist/chunk-QNLWS34R.js
+var init_chunk_QNLWS34R = __esm({
+  "../../packages/core/dist/chunk-QNLWS34R.js"() {
+    "use strict";
+  }
+});
+
 // ../../node_modules/.pnpm/braces@3.0.3/node_modules/braces/lib/utils.js
 var require_utils = __commonJS({
   "../../node_modules/.pnpm/braces@3.0.3/node_modules/braces/lib/utils.js"(exports2) {
@@ -16819,6 +16826,9 @@ __export(mcps_exports, {
 });
 module.exports = __toCommonJS(mcps_exports);
 
+// ../../packages/core/dist/index.js
+init_chunk_QNLWS34R();
+
 // ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};
 __export(external_exports, {
@@ -29059,7 +29069,10 @@ var Context7MaxConfigSchema = external_exports.object({
 });
 var DEFAULT_CONFIG = Context7MaxConfigSchema.parse({});
 async function searchMcpServers(db, query, limit = 20) {
-  const { data, error } = await db.from("mcp_servers").select("*").or(`name.ilike.%${query.replace(/[%,']/g, "")}%,description.ilike.%${query.replace(/[%,']/g, "")}%`).order("use_count", { ascending: false }).limit(limit);
+  const terms = query.toLowerCase().split(/\s+/).map((t) => t.replace(/[%,()'"]/g, "").trim()).filter((t) => t.length >= 3);
+  if (terms.length === 0) return [];
+  const orFilters = terms.flatMap((t) => [`name.ilike.%${t}%`, `description.ilike.%${t}%`]).join(",");
+  const { data, error } = await db.from("mcp_servers").select("*").or(orFilters).order("use_count", { ascending: false }).limit(limit);
   if (error) throw new Error(`mcp search: ${error.message}`);
   return data ?? [];
 }

@@ -29,8 +29,10 @@ export async function fetchGitSource(url: string): Promise<IngestSourceResult> {
   const workDir = mkdtempSync(join(tmpdir(), "ctx7max-git-"));
 
   try {
-    const cloneArgs = ["clone", "--depth", "1", "--filter=blob:none"];
-    if (subPath) cloneArgs.push("--sparse");
+    // Importante: --no-checkout para evitar fallos en repos con nombres
+    // ilegales en Windows (p.ej. ':' o caracteres NTFS-reservados); el
+    // checkout (todo o sparse) ocurre después.
+    const cloneArgs = ["clone", "--depth", "1", "--filter=blob:none", "--no-checkout"];
     if (branch) cloneArgs.push("--branch", branch);
     cloneArgs.push("--", repoUrl, workDir);
 
@@ -49,6 +51,12 @@ export async function fetchGitSource(url: string): Promise<IngestSourceResult> {
         timeout: 60_000,
       });
     }
+    // checkout (sparse o completo); --guess= false para evitar heurísticas
+    await execFileP(
+      "git",
+      ["-c", "core.protectNTFS=false", "checkout"],
+      { cwd: workDir, timeout: 120_000 },
+    ).catch(() => {});
 
     // resolved HEAD sha for staleness tracking
     let sha: string | null = null;
@@ -76,6 +84,12 @@ export async function fetchGitSource(url: string): Promise<IngestSourceResult> {
     const repoName = repoUrl.split("/").pop()!.replace(/\.git$/, "");
     const host = new URL(repoUrl).hostname.replace(/^www\./, "");
     const browserBase = repoUrl.replace(/\.git$/, "");
+    // IDs limpios: en github.com usamos /org/repo igual que la fuente github
+    let libraryId = `/git/${host.replace(/\./g, "-")}/${repoName}`.toLowerCase();
+    if (host === "github.com") {
+      const m = repoUrl.match(/github\.com[:/]([^/]+)\/([^/#?]+?)(?:\.git)?(?:[#@]|$)/);
+      if (m) libraryId = `/${m[1]}/${m[2]}`;
+    }
 
     const files: DocFile[] = [];
     let total = 0;
@@ -106,7 +120,7 @@ export async function fetchGitSource(url: string): Promise<IngestSourceResult> {
     }
 
     return {
-      libraryId: `/git/${host.replace(/\./g, "-")}/${repoName}`.toLowerCase(),
+      libraryId,
       title: config.projectTitle ?? repoName,
       description: config.description ?? `Git repository at ${host}`,
       sourceType: "github", // storage-wise identical to github

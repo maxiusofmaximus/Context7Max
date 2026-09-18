@@ -527,10 +527,12 @@ export async function upsertSkills(
   db: SupabaseClient,
   rows: SkillRow[],
 ): Promise<void> {
-  for (let i = 0; i < rows.length; i += 200) {
+  // filas grandes (body completo) — lotes pequeños para no topar el statement timeout
+  const CHUNK = 50;
+  for (let i = 0; i < rows.length; i += CHUNK) {
     const { error } = await db
       .from("skills")
-      .upsert(rows.slice(i, i + 200), { onConflict: "id" });
+      .upsert(rows.slice(i, i + CHUNK), { onConflict: "id" });
     if (error) throw new Error(`skills upsert: ${error.message}`);
   }
 }
@@ -628,10 +630,19 @@ export async function searchMcpServers(
   query: string,
   limit = 20,
 ): Promise<McpServerRow[]> {
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[%,()'"]/g, "").trim())
+    .filter((t) => t.length >= 3);
+  if (terms.length === 0) return [];
+  const orFilters = terms
+    .flatMap((t) => [`name.ilike.%${t}%`, `description.ilike.%${t}%`])
+    .join(",");
   const { data, error } = await db
     .from("mcp_servers")
     .select("*")
-    .or(`name.ilike.%${query.replace(/[%,']/g, "")}%,description.ilike.%${query.replace(/[%,']/g, "")}%`)
+    .or(orFilters)
     .order("use_count", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`mcp search: ${error.message}`);

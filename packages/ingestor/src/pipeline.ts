@@ -67,6 +67,8 @@ export interface SourcePreview {
 
 export function detectSourceKind(url: string, explicit?: SourceKind): Exclude<SourceKind, "auto"> {
   if (explicit && explicit !== "auto") return explicit;
+  // git con sufijo .git o subpath/branch explícitos tiene prioridad (sparse checkout)
+  if (/\.git([#@].*|$)/i.test(url) || /\.git\.#/.test(url)) return "git";
   if (/github\.com[/:][^/]+\/[^/#?]+/i.test(url)) return "github";
   if (/llms(-full)?\.txt([?#].*)?$/i.test(url)) return "llmstxt";
   if (/\.pdf([?#].*)?$/i.test(url)) return "pdf";

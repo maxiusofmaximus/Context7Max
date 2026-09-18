@@ -13724,6 +13724,13 @@ var require_main3 = __commonJS({
   }
 });
 
+// ../../packages/core/dist/chunk-QNLWS34R.js
+var init_chunk_QNLWS34R = __esm({
+  "../../packages/core/dist/chunk-QNLWS34R.js"() {
+    "use strict";
+  }
+});
+
 // ../../node_modules/.pnpm/braces@3.0.3/node_modules/braces/lib/utils.js
 var require_utils = __commonJS({
   "../../node_modules/.pnpm/braces@3.0.3/node_modules/braces/lib/utils.js"(exports2) {
@@ -24872,6 +24879,9 @@ function handleOptions(req, res) {
   }
   return false;
 }
+
+// ../../packages/core/dist/index.js
+init_chunk_QNLWS34R();
 
 // ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};

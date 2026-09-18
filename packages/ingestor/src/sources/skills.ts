@@ -46,6 +46,23 @@ const SKILL_REPOS: { owner: string; repo: string; globHint: string }[] = [
   { owner: "K-Dense-AI", repo: "scientific-agent-skills", globHint: "" },
   { owner: "emilkowalski", repo: "skills", globHint: "" },
   { owner: "coreyhaines31", repo: "marketingskills", globHint: "" },
+  // ── oficiales de laboratorio/empresa (verificados sep-2026) ──
+  { owner: "NVIDIA", repo: "skills", globHint: "" },
+  { owner: "microsoft", repo: "skills", globHint: "" },
+  { owner: "microsoft", repo: "SkillOpt", globHint: "" },
+  { owner: "google", repo: "agents-cli", globHint: "" },
+  { owner: "cloudflare", repo: "skills", globHint: "" },
+  // ── seguridad ofensiva (skills) ──
+  { owner: "SnailSploit", repo: "Claude-Red", globHint: "" },
+  // ── herramientas/agentes con skills empaquetadas ──
+  { owner: "browser-use", repo: "browser-use", globHint: "skills/" },
+  { owner: "openinterpreter", repo: "openinterpreter", globHint: "" },
+  { owner: "kortix-ai", repo: "kortix-ocx-registry", globHint: "" },
+  // ── IndyDevDan (Claude Code mastery) ──
+  { owner: "disler", repo: "claude-code-hooks-mastery", globHint: "" },
+  { owner: "disler", repo: "claude-code-hooks-multi-agent-observability", globHint: "" },
+  { owner: "disler", repo: "super-simple-software-factory", globHint: "" },
+  { owner: "disler", repo: "pi-vs-claude-code", globHint: "" },
   // ── creadores de contenido (verificados sep-2026) ──
   { owner: "midudev", repo: "autoskills", globHint: "registry/" },
   { owner: "ArisGuimera", repo: "MobiAI-Core", globHint: "skills/" },
