@@ -50,6 +50,20 @@ export const cmdDoctor = wrapCmd(async () => {
       if (error) throw new Error(error.message);
       ok("Supabase accesible");
 
+      // Capacidad dentro del free tier (500MB)
+      try {
+        const { data: size } = await db.rpc("db_size_info");
+        const pct = Math.round((size.total_bytes / (500 * 1048576)) * 100);
+        const color = pct > 90 ? pc.red : pct > 75 ? pc.yellow : pc.dim;
+        console.log(
+          `  ${pct > 90 ? "⚠" : pct > 75 ? "•" : "✓"} Capacidad BD: ` +
+            color(`${size.total_mb} MB usados (${pct}% del free tier)`) +
+            pc.dim(` · libre: ${size.free_tier_remaining_mb} MB`),
+        );
+        if (pct > 90)
+          warn("Casi lleno: considera `ctx7max remove` de librerías pesadas o un trim");
+      } catch { /* migración 0008 pendiente */ }
+
       // edge function
       const t0 = Date.now();
       const res = await fetch(`${cfg.supabaseUrl}/functions/v1/embed`, {

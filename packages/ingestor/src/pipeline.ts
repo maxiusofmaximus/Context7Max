@@ -162,6 +162,24 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
   const log = opts.onLog ?? (() => {});
   const doEmbed = opts.embed !== false;
 
+  // 0) guardia de capacidad: el free tier de Supabase es 500MB
+  {
+    const db0 = createDb(opts.env);
+    try {
+      const { data: size } = await db0.rpc("db_size_info");
+      const pct = Math.round((size.total_bytes / (500 * 1048576)) * 100);
+      if (pct >= 97) {
+        throw new Error(
+          `Capacidad agotada: ${size.total_mb}MB/500MB usados. Libera espacio (ctx7max remove) o sube a Pro antes de añadir más.`,
+        );
+      }
+      if (pct >= 85) log(`⚠ BD al ${pct}% del free tier (${size.total_mb}MB/500MB)`);
+    } catch (err) {
+      if ((err as Error).message.includes("Capacidad")) throw err;
+      // migración 0008 no aplicada todavía — no bloquear por eso
+    }
+  }
+
   // 1) fetch
   log("fetching source…");
   const source = await fetchSource(url, opts);
