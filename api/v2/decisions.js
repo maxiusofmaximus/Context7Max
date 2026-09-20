@@ -16818,13 +16818,13 @@ var require_main3 = __commonJS({
   }
 });
 
-// src/v1/refresh.ts
-var refresh_exports = {};
-__export(refresh_exports, {
+// src/v2/decisions.ts
+var decisions_exports = {};
+__export(decisions_exports, {
   default: () => handler,
   maxDuration: () => maxDuration
 });
-module.exports = __toCommonJS(refresh_exports);
+module.exports = __toCommonJS(decisions_exports);
 
 // ../../packages/core/dist/index.js
 init_chunk_QNLWS34R();
@@ -29068,15 +29068,94 @@ var Context7MaxConfigSchema = external_exports.object({
   trustScore: external_exports.number().min(0).max(10).optional()
 });
 var DEFAULT_CONFIG = Context7MaxConfigSchema.parse({});
-async function getLibrary(db, id) {
-  const { data, error } = await db.from("libraries").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(`get library: ${error.message}`);
+var EMBED_BATCH = 8;
+var EMBED_CONCURRENCY = 3;
+async function embedTexts(env, texts) {
+  if (texts.length === 0) return [];
+  const out = new Array(texts.length).fill(null);
+  let consecutiveFailures = 0;
+  const batches = [];
+  for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+    batches.push({ index: i, items: texts.slice(i, i + EMBED_BATCH) });
+  }
+  let cursor = 0;
+  async function worker() {
+    while (cursor < batches.length) {
+      if (consecutiveFailures >= 3) return;
+      const batch = batches[cursor++];
+      let done = false;
+      for (let attempt = 0; attempt < 2 && !done; attempt++) {
+        try {
+          const res = await fetch(`${env.supabaseUrl}/functions/v1/embed`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${env.serviceRoleKey}`
+            },
+            body: JSON.stringify({ inputs: batch.items })
+          });
+          if (!res.ok)
+            throw new Error(`embed ${res.status}: ${(await res.text()).slice(0, 200)}`);
+          const data = await res.json();
+          if (!Array.isArray(data.embeddings)) throw new Error("bad embed payload");
+          data.embeddings.forEach((e, j) => {
+            out[batch.index + j] = e;
+          });
+          done = true;
+          consecutiveFailures = 0;
+        } catch (err) {
+          if (attempt === 1) {
+            console.warn(
+              `[ctx7max] embeddings batch ${batch.index}: ${err.message}`
+            );
+            consecutiveFailures++;
+            if (consecutiveFailures >= 3) {
+              console.warn(
+                "[ctx7max] demasiados fallos seguidos \u2014 continuo sin vectores (modo FTS)"
+              );
+              return;
+            }
+          } else {
+            await new Promise((r) => setTimeout(r, 700));
+          }
+        }
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(EMBED_CONCURRENCY, batches.length) }, () => worker())
+  );
+  return out;
+}
+async function embedQuery(env, text) {
+  const [v] = await embedTexts(env, [text]);
+  return v ?? null;
+}
+async function searchDecisionSpecs(db, opts) {
+  const { data, error } = await db.rpc("search_decision_specs", {
+    p_query: opts.query,
+    p_embedding: opts.embedding ?? null,
+    p_domain: opts.domain ?? null,
+    p_limit: opts.limit ?? 15,
+    p_fast: opts.fast ?? false
+  });
+  if (error) throw new Error(`search_decision_specs: ${error.message}`);
+  return data ?? [];
+}
+async function getDecisionSpec(db, id) {
+  const { data, error } = await db.from("decision_specs").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(`get decision spec: ${error.message}`);
   return data ?? null;
 }
-async function createJob(db, job) {
-  const { data, error } = await db.from("jobs").insert(job).select("id").single();
-  if (error) throw new Error(`create job: ${error.message}`);
-  return data.id;
+async function listDecisionDomains(db) {
+  const { data, error } = await db.from("decision_specs").select("domain");
+  if (error) throw new Error(`decision domains: ${error.message}`);
+  const map = /* @__PURE__ */ new Map();
+  for (const r of data ?? []) {
+    const d = r.domain ?? "other";
+    map.set(d, (map.get(d) ?? 0) + 1);
+  }
+  return [...map.entries()].map(([domain, count]) => ({ domain, count }));
 }
 var DecisionQuestionSchema = external_exports.object({
   type: external_exports.enum(["choice", "score", "noul"]),
@@ -29106,10 +29185,14 @@ var DecisionSpecSchema = external_exports.object({
 });
 
 // lib/auth.ts
+var import_node_crypto = require("node:crypto");
 function bearerToken(req) {
   const h = req.headers.authorization ?? "";
   const m = h.match(/^bearer\s+(.+)$/i);
   return m?.[1]?.trim() ?? null;
+}
+function hashKey(key) {
+  return (0, import_node_crypto.createHash)("sha256").update(key).digest("hex");
 }
 var supabase = null;
 function getSupabase() {
@@ -29123,10 +29206,32 @@ function getSupabase() {
   }
   return supabase;
 }
-function isAdmin(req) {
+async function isAuthorized(req) {
   const token = bearerToken(req);
-  const admin = process.env.CTX7MAX_ADMIN_KEY;
-  return !!admin && !!token && token === admin;
+  if (!token) return false;
+  if (process.env.CTX7MAX_API_KEY && token === process.env.CTX7MAX_API_KEY)
+    return true;
+  try {
+    const { data, error } = await getSupabase().from("api_keys").select("id").eq("key_hash", hashKey(token)).maybeSingle();
+    return !error && !!data;
+  } catch {
+    return false;
+  }
+}
+var buckets = /* @__PURE__ */ new Map();
+function rateLimit(req, limitPerMinute = 120) {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ?? req.socket?.remoteAddress ?? "unknown";
+  const now = Date.now();
+  const b = buckets.get(ip);
+  if (!b || b.resetAt < now) {
+    buckets.set(ip, { count: 1, resetAt: now + 6e4 });
+    return { limited: false, retryAfter: 0 };
+  }
+  b.count++;
+  if (b.count > limitPerMinute) {
+    return { limited: true, retryAfter: Math.ceil((b.resetAt - now) / 1e3) };
+  }
+  return { limited: false, retryAfter: 0 };
 }
 
 // lib/http.ts
@@ -29135,6 +29240,11 @@ function json(res, status, body) {
 }
 function apiError(res, status, error, message) {
   json(res, status, { error, message });
+}
+function corsRead(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
 }
 function handleOptions(req, res) {
   if (req.method === "OPTIONS") {
@@ -29147,72 +29257,42 @@ function handleOptions(req, res) {
   return false;
 }
 
-// lib/queue.ts
-async function enqueueIngestion(sourceUrl, actor, opts = {}) {
-  const libId = opts.libraryId ?? guessLibraryId(sourceUrl);
-  await createJob(getSupabase(), {
-    library_id: libId,
-    action: "ingest",
-    status: "queued",
-    stage: null,
-    message: sourceUrl,
-    stats: {},
-    actor
-  });
-  const token = process.env.GH_DISPATCH_TOKEN;
-  const repo = process.env.GH_REPO;
-  if (!token || !repo) return { enqueued: true, dispatched: false };
-  try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        event_type: "ctx7max-ingest",
-        client_payload: { sourceUrl, libraryId: libId }
-      })
-    });
-    return { enqueued: true, dispatched: res.status >= 200 && res.status < 300 };
-  } catch {
-    return { enqueued: true, dispatched: false };
-  }
-}
-function guessLibraryId(url) {
-  const gh = url.match(/github\.com[/:]([^/]+)\/([^/#?]+)/i);
-  if (gh) return `/${gh[1]}/${gh[2].replace(/\.git$/, "")}`;
-  try {
-    const u = new URL(url);
-    if (/llms(-full)?\.txt/i.test(url))
-      return `/llmstxt/${u.hostname.replace(/^www\./, "").replace(/\./g, "-")}`;
-    return `/websites/${u.hostname.replace(/^www\./, "").replace(/\./g, "-")}`;
-  } catch {
-    return url;
-  }
-}
-
-// src/v1/refresh.ts
+// src/v2/decisions.ts
 var maxDuration = 30;
 async function handler(req, res) {
   if (handleOptions(req, res)) return;
-  if (req.method !== "POST") return apiError(res, 405, "method_not_allowed", "Use POST");
-  if (!isAdmin(req)) {
-    return apiError(res, 403, "forbidden", "Admin key required (CTX7MAX_ADMIN_KEY)");
+  corsRead(res);
+  if (req.method !== "GET") return apiError(res, 405, "method_not_allowed", "Use GET");
+  const rl = rateLimit(req);
+  if (rl.limited) {
+    res.setHeader("Retry-After", rl.retryAfter);
+    return apiError(res, 429, "rate_limit_exceeded", "Rate limit exceeded");
   }
-  const body = req.body ?? {};
-  const libraryId = body.libraryId?.trim();
-  if (!libraryId || !libraryId.startsWith("/")) {
-    return apiError(res, 400, "validation_error", 'Body must include { libraryId: "/org/repo" }');
+  if (!await isAuthorized(req)) {
+    return apiError(res, 401, "invalid_api_key", "Missing or invalid API key");
   }
-  const library = await getLibrary(getSupabase(), libraryId);
-  if (!library) {
-    return apiError(res, 404, "library_not_found", `Library "${libraryId}" not found`);
-  }
+  const db = getSupabase();
+  const id = String(req.query.id ?? "").trim();
+  const q = String(req.query.q ?? "").trim();
+  const domain = String(req.query.domain ?? "").trim() || null;
+  const fast = String(req.query.fast ?? "false") === "true";
   try {
-    await enqueueIngestion(library.source_url, "api", { libraryId: library.id });
-    return json(res, 202, { status: "queued", libraryId: library.id });
+    if (id) {
+      const spec = await getDecisionSpec(db, id);
+      if (!spec) return apiError(res, 404, "spec_not_found", `Spec "${id}" not found`);
+      return json(res, 200, spec);
+    }
+    if (!q) {
+      const domains = await listDecisionDomains(db);
+      return json(res, 200, { domains });
+    }
+    const env = {
+      supabaseUrl: process.env.SUPABASE_URL,
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
+    };
+    const embedding = fast ? null : await embedQuery(env, q);
+    const results = await searchDecisionSpecs(db, { query: q, domain, embedding, fast });
+    return json(res, 200, { query: q, mode: fast || !embedding ? "fts" : "hybrid", results });
   } catch (err) {
     return apiError(res, 500, "internal_error", err.message);
   }

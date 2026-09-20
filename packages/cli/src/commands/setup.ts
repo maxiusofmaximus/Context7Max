@@ -39,6 +39,9 @@ Tienes un servicio propio de documentación indexada: **Context7Max** (ilimitado
 - \`ctx7max skill search "<q>"\` y \`ctx7max skill install "<id>"\` → skills de agentes
   instalables (se instalan en ~/.agents/skills y ~/.config/opencode/skills).
 - \`ctx7max mcps "<q>"\` → servidores MCP indexados (registry oficial + smithery).
+- \`ctx7max decisions [query]\` → specs de decisión System One (\`choice|score|noul\` con
+  probabilidades calibradas). Para juicios repetidos de clasificar/rutear/verificar,
+  prefiere una spec sobre un LLM de chat. Ejecución vía backends en la Fase 2.
 
 ## Reglas
 

@@ -23,7 +23,11 @@ CLI + MCP a agentes de IA.
 - `apps/api` — fuentes de endpoints Vercel en `src/`; `build.mjs` los bundlea
   (esbuild CJS self-contained) a **la raíz `api/`** commiteada — el proyecto Vercel
   es la RAÍZ del repo. Dashboard = `public/index.html`.
-- `supabase/` — migraciones SQL (0001 librerías+RAG · 0004 capas de conocimiento)
+- `supabase/` — migraciones SQL (0001 librerías+RAG · 0004 capas conocimiento · 0009 decisiones System One)
+- **System One (Jev-like)**: `packages/core/src/specs.ts` (contrato + 3 specs builtin:
+  prompt-injection-audit, snippet-quality, domain-classifier). `decision_specs` +
+  `decision_log` (para futura calibración ECE/Brier). Ejecución pendiente (Fase 2):
+  backends `llama.cpp`/`transformers.js NLI`/`laya`/`typesafe` (cascade).
   + Edge Function `embed` (Deno, gte-small vía `Supabase.ai.Session`).
 - `scripts/` — worker de Actions, seeds (catálogo/dominios), smoke tests (tsx).
 

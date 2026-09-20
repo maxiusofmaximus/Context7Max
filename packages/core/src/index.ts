@@ -6,4 +6,5 @@ export * from "./db.js";
 export * from "./format.js";
 export * from "./parser/index.js";
 export * from "./domain-sources.js";
+export * from "./specs.js";
 export { embedTextsLocal, hasLocalEmbeddings } from "./embed-local.js";

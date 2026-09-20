@@ -165,6 +165,49 @@ export async function runServer(): Promise<void> {
     },
   );
 
+  server.registerTool(
+    "decisions",
+    {
+      title: "System One decisions",
+      description:
+        "Specs de decisión tipada (choice/score/noul) compatibles con Jev/System One. action=list|get — la ejecución vive en backends locales (`decisions run` en el CLI).",
+      inputSchema: {
+        action: z.enum(["list", "get"]).describe("list: buscar specs filtrables por dominio · get: spec completa por id"),
+        query: z.string().optional().describe("texto de búsqueda (para list)"),
+        domain: z.string().optional().describe("dominio (para list): security|quality|routing|custom…"),
+        id: z.string().optional().describe("id del spec (para get)"),
+      },
+    },
+    async ({ action, query, domain, id }) => {
+      if (action === "list") {
+        const params: Record<string, string> = {};
+        if (query) params.q = query;
+        if (domain) params.domain = domain;
+        const res = await apiGet("/api/v2/decisions", params);
+        if (!res.ok) return asText(`Error ${res.status}: ${await res.text()}`);
+        const data = (await res.json()) as
+          | { domains: { domain: string; count: number }[] }
+          | { results: { id: string; name: string; description: string | null; domain: string | null; score: number }[] };
+        if ("domains" in data) {
+          return asText(
+            "Dominios disponibles:\n" +
+              data.domains.map((d) => `- ${d.domain} (${d.count})`).join("\n"),
+          );
+        }
+        return asText(
+          "Specs:\n" +
+            data.results
+              .map((s) => `- ${s.id} (${s.domain ?? "?"}) — ${s.description ?? ""}`)
+              .join("\n"),
+        );
+      }
+      if (!id) return asText("get requiere { id }");
+      const res = await apiGet("/api/v2/decisions", { id });
+      if (!res.ok) return asText(`Error ${res.status}: ${await res.text()}`);
+      return asText(JSON.stringify(await res.json(), null, 2));
+    },
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

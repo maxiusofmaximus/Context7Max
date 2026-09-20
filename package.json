@@ -23,6 +23,7 @@
     "@ctx7max/core": "workspace:*",
     "@ctx7max/ingestor": "workspace:*",
     "@types/node": "^22.20.1",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   },
@@ -38,6 +39,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0"
+    "@huggingface/transformers": "^4.2.0",
+    "pg": "^8.23.0"
   }
 }

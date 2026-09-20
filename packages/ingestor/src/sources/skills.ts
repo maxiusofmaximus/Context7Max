@@ -15,6 +15,7 @@ const SKILL_REPOS: { owner: string; repo: string; globHint: string }[] = [
   { owner: "vercel-labs", repo: "skills", globHint: "" },
   { owner: "addyosmani", repo: "agent-skills", globHint: "" },
   { owner: "supabase", repo: "agent-skills", globHint: "" },
+  { owner: "typesafe-ai", repo: "skills", globHint: "" },
   // ── proveedores cloud / plataformas (oficiales) ──
   { owner: "cloudflare", repo: "skills", globHint: "skills/" },
   { owner: "google", repo: "agents-cli", globHint: "skills/" },

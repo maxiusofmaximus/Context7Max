@@ -19,6 +19,7 @@ import {
   cmdSkillInstall,
   cmdMcps,
   cmdIngest,
+  cmdDecisions,
 } from "./commands/kb.js";
 
 const program = new Command();
@@ -169,6 +170,14 @@ program
   .argument("[source]", "solo para guides: roadmap.sh | ossu | freecodecamp | odin | fullstackopen | missing-semester")
   .option("--no-embed", "sin embeddings (solo FTS)")
   .action((tipo, source, opts) => cmdIngest(tipo, { source, noEmbed: opts.noEmbed }));
+
+program
+  .command("decisions")
+  .description("Specs de decisión System One (choice/score/noul con probabilidades)")
+  .argument("[query]", "búsqueda (vacío → lista dominios)")
+  .option("--domain <dominio>", "filtrar por dominio (security, quality, routing…)")
+  .option("--json", "salida JSON")
+  .action(cmdDecisions);
 
 program
   .command("mcp")

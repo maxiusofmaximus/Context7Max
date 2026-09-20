@@ -168,12 +168,15 @@ export async function ingestSource(url: string, opts: IngestOptions): Promise<In
     try {
       const { data: size } = await db0.rpc("db_size_info");
       const pct = Math.round((size.total_bytes / (500 * 1048576)) * 100);
-      if (pct >= 97) {
+      // El tamaño reportado por pg_database_size incluye dead rows pre-vacuum:
+      // cerca del límite avisamos; solo bloqueamos en el umbral crítico (125%).
+      if (pct >= 125) {
         throw new Error(
-          `Capacidad agotada: ${size.total_mb}MB/500MB usados. Libera espacio (ctx7max remove) o sube a Pro antes de añadir más.`,
+          `Capacidad crítica: ${size.total_mb}MB reportados (dead rows incluidas). ` +
+            `Vacía el espacio: scripts/vacuum-todo.md`,
         );
       }
-      if (pct >= 85) log(`⚠ BD al ${pct}% del free tier (${size.total_mb}MB/500MB)`);
+      if (pct >= 97) log(`⚠ BD: ${size.total_mb}MB reportados (${pct}% del free tier — incluye reciclables)`);
     } catch (err) {
       if ((err as Error).message.includes("Capacidad")) throw err;
       // migración 0008 no aplicada todavía — no bloquear por eso

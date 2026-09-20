@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { hasLocalEmbeddings } from "./embed-local.js";
+import { hashContent } from "./hash.js";
+import { countTokens } from "./tokens.js";
+import type { DecisionSpec } from "./specs.js";
 import type {
   CatalogRow,
   CodeSnippetRow,
@@ -655,6 +658,101 @@ export async function listGuideDomains(
   const { data, error } = await db.rpc("guide_domains");
   if (error) throw new Error(`guide_domains: ${error.message}`);
   return (data as { domain: string; source: string; count: number }[]) ?? [];
+}
+
+// ── Decision specs (System One) ─────────────────────────────────────
+
+export async function upsertDecisionSpecs(
+  db: SupabaseClient,
+  specs: DecisionSpec[],
+  embedder?: (texts: string[]) => Promise<(number[] | null)[]>,
+): Promise<void> {
+  if (specs.length === 0) return;
+  const embedTexts = specs.map((s) =>
+    [s.name, s.description, s.domain, Object.keys(s.questions).join(", ")]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 1300),
+  );
+  const embeddings = embedder ? await embedder(embedTexts) : specs.map(() => null);
+  const rows = specs.map((s, i) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description ?? null,
+    domain: s.domain ?? null,
+    source: s.source,
+    state_hint: s.state_hint ?? null,
+    questions: s.questions,
+    routing: s.routing ?? {},
+    license: s.license,
+    scope: s.scope,
+    content_hash: hashContent(JSON.stringify(s.questions)),
+    tokens: countTokens(JSON.stringify(s.questions)) + countTokens(s.name),
+    embedding: embeddings[i] ?? null,
+  }));
+  const { error } = await db.from("decision_specs").upsert(rows, { onConflict: "id" });
+  if (error) throw new Error(`decision_specs upsert: ${error.message}`);
+}
+
+export interface DecisionSpecMatch {
+  id: string;
+  name: string;
+  description: string | null;
+  domain: string | null;
+  source: string;
+  state_hint: string | null;
+  questions: Record<string, unknown>;
+  routing: Record<string, unknown>;
+  license: string | null;
+  tokens: number;
+  score: number;
+}
+
+export async function searchDecisionSpecs(
+  db: SupabaseClient,
+  opts: {
+    query: string;
+    domain?: string | null;
+    embedding?: number[] | null;
+    limit?: number;
+    fast?: boolean;
+  },
+): Promise<DecisionSpecMatch[]> {
+  const { data, error } = await db.rpc("search_decision_specs", {
+    p_query: opts.query,
+    p_embedding: opts.embedding ?? null,
+    p_domain: opts.domain ?? null,
+    p_limit: opts.limit ?? 15,
+    p_fast: opts.fast ?? false,
+  });
+  if (error) throw new Error(`search_decision_specs: ${error.message}`);
+  return (data as DecisionSpecMatch[]) ?? [];
+}
+
+export async function getDecisionSpec(
+  db: SupabaseClient,
+  id: string,
+): Promise<DecisionSpecMatch | null> {
+  const { data, error } = await db
+    .from("decision_specs")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`get decision spec: ${error.message}`);
+  return (data as DecisionSpecMatch) ?? null;
+}
+
+export async function listDecisionDomains(
+  db: SupabaseClient,
+): Promise<{ domain: string; count: number }[]> {
+  const { data, error } = await db.from("decision_specs").select("domain");
+  if (error) throw new Error(`decision domains: ${error.message}`);
+  const map = new Map<string, number>();
+  for (const r of (data as { domain: string | null }[]) ?? []) {
+    const d = r.domain ?? "other";
+    map.set(d, (map.get(d) ?? 0) + 1);
+  }
+  return [...map.entries()].map(([domain, count]) => ({ domain, count }));
 }
 
 // ── Health ───────────────────────────────────────────────────────────

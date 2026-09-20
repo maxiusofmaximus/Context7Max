@@ -29115,6 +29115,32 @@ async function createJob(db, job) {
   if (error) throw new Error(`create job: ${error.message}`);
   return data.id;
 }
+var DecisionQuestionSchema = external_exports.object({
+  type: external_exports.enum(["choice", "score", "noul"]),
+  /** qué preguntar exactamente (una sola cosa, bien delimitada) */
+  instructions: external_exports.string().min(1),
+  /** choice: map opción→descripción; score: array ordenado de niveles; noul: {true?, false?} opcional */
+  criteria: external_exports.union([external_exports.record(external_exports.string().or(external_exports.null())), external_exports.array(external_exports.string())]).optional()
+});
+var DecisionRoutingSchema = external_exports.object({
+  /** si la confianza cae por debajo, la acción por defecto */
+  on_confidence_below: external_exports.number().min(0).max(1).optional(),
+  on_confidence_below_action: external_exports.enum(["escalate", "abort", "default", "log"]).optional(),
+  /** acción por valor concreto de choice/score */
+  actions: external_exports.record(external_exports.string()).optional()
+});
+var DecisionSpecSchema = external_exports.object({
+  id: external_exports.string().min(1).regex(/^[a-z0-9][a-z0-9-_.\/:]*$/i),
+  name: external_exports.string().min(1),
+  description: external_exports.string().optional(),
+  domain: external_exports.string().optional(),
+  source: external_exports.enum(["builtin", "github", "typesafe", "custom"]).default("custom"),
+  state_hint: external_exports.string().optional(),
+  questions: external_exports.record(DecisionQuestionSchema),
+  routing: DecisionRoutingSchema.optional(),
+  license: external_exports.string().default("MIT"),
+  scope: external_exports.enum(["public", "internal"]).default("public")
+});
 
 // lib/queue.ts
 async function enqueueIngestion(sourceUrl, actor, opts = {}) {

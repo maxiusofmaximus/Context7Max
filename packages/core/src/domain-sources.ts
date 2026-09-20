@@ -142,6 +142,20 @@ export const DOMAIN_SOURCES: Record<string, string[]> = {
     "https://github.com/yoheinakajima/babyagi",
     "https://github.com/openai/evals",
   ],
+  "system-one": [
+    // Jev (TypeSafe, propietario) y equivalentes open-source (sep-2026)
+    "https://docs.typesafe.ai/llms.txt",
+    "https://github.com/typesafe-ai/typesafe-sdk-js",
+    "https://github.com/typesafe-ai/typesafe-sdk-python",
+    "https://github.com/typesafe-ai/system-one-adapter-python",
+    "https://github.com/NandhaKishorM/laya",
+    "https://github.com/TheoLeeCJ/SemIf",
+    "https://github.com/kotoba-lang/typed-decisions",
+    "https://github.com/ikermoel/open-alternative-jev",
+    "https://github.com/tacticocc/Jevbridge",
+    "https://github.com/razorback16/openjev",
+    "https://github.com/featherless-ai/simple-jev",
+  ],
   creators: [
     // guías/libros/currículos de agentes-IA creados por creadores
     "https://github.com/coleam00/context-engineering-intro",

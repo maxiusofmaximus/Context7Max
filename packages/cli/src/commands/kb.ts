@@ -204,6 +204,44 @@ export const cmdReembed = wrapCmd(async () => {
   }
 });
 
+// ── decisions (System One specs) ────────────────────────────────────
+
+export const cmdDecisions = wrapCmd(
+  async (query: string | undefined, opts: { domain?: string; json?: boolean }) => {
+    const cfg = loadConfig();
+    if (!cfg.apiUrl || !cfg.apiKey) {
+      throw new Error("Configura api-url + api-key: ctx7max config");
+    }
+    const params: Record<string, string> = {};
+    if (query) params.q = query;
+    if (opts.domain) params.domain = opts.domain;
+    const data = (await apiGet("/api/v2/decisions", params as Record<string, string>)) as
+      | { domains: { domain: string; count: number }[] }
+      | { results: { id: string; name: string; description: string | null; domain: string | null; license: string | null; score: number }[]; mode: string };
+
+    if (opts.json) {
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+    if ("domains" in data) {
+      console.log(pc.bold("\nDominios de specs:\n"));
+      for (const d of data.domains) {
+        console.log(`  ${pc.cyan(d.domain.padEnd(18))} ${d.count} specs`);
+      }
+      return;
+    }
+    if (!("results" in data) || data.results.length === 0) {
+      console.log(pc.yellow("Sin specs. Indexa: ctx7max ingest decisions"));
+      return;
+    }
+    console.log(pc.bold(`\n${data.results.length} spec(s)`));
+    for (const s of data.results) {
+      console.log(`  ${pc.cyan(s.id)}  ${pc.dim(`[${s.domain ?? "otro"} · score ${s.score.toFixed(2)}]`)}`);
+      if (s.description) console.log(`    ${s.description.slice(0, 110)}`);
+    }
+  },
+);
+
 // ── ingest (admin, local) ───────────────────────────────────────────
 
 export const cmdIngest = wrapCmd(
@@ -216,7 +254,7 @@ export const cmdIngest = wrapCmd(
       supabaseUrl: cfg.supabaseUrl,
       serviceRoleKey: cfg.supabaseServiceRoleKey,
     };
-    const { ingestGuides, ingestSkills, ingestMcpServers, GUIDE_SOURCES } =
+    const { ingestGuides, ingestSkills, ingestMcpServers, ingestDecisionSpecs, GUIDE_SOURCES } =
       await import("@ctx7max/ingestor");
     const log = (m: string) => console.log(pc.dim(m));
     const common = {
@@ -249,6 +287,12 @@ export const cmdIngest = wrapCmd(
       console.log(pc.green(`  ✓ ${r.total} servidores`));
       return;
     }
-    throw new Error(`ingest: tipo desconocido "${what}". Usa guides|skills|mcps`);
+    if (what === "decisions") {
+      console.log(pc.bold("\nIngestando specs de decisión…"));
+      const r = await ingestDecisionSpecs(common);
+      console.log(pc.green(`  ✓ ${r.total} specs`));
+      return;
+    }
+    throw new Error(`ingest: tipo desconocido "${what}". Usa guides|skills|mcps|decisions`);
   },
 );

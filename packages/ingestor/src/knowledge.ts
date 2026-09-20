@@ -23,6 +23,8 @@ import {
   toSkillRow,
 } from "./sources/skills.js";
 import { curatedMcpServers, fetchOfficialMcpRegistry, fetchSmitheryRegistry } from "./sources/mcps.js";
+import { fetchDecisionSpecsFromGitHub } from "./sources/decisions.js";
+import { STARTER_SPECS, upsertDecisionSpecs } from "@ctx7max/core";
 
 export interface KnowledgeIngestOptions {
   env: DbEnv;
@@ -169,6 +171,44 @@ export async function ingestMcpServers(opts: KnowledgeIngestOptions): Promise<{ 
   });
   await upsertMcpServers(db, rows);
   return { total: rows.length };
+}
+
+// ── Decision specs (System One) ─────────────────────────────────────
+
+/**
+ * Ingesta de specs de decisión: los 3 builtin de Context7Max + repos comunitarios.
+ */
+export async function ingestDecisionSpecs(opts: KnowledgeIngestOptions): Promise<{ total: number }> {
+  const db = createDb(opts.env);
+  const log = opts.onLog ?? (() => {});
+
+  // 1) builtins (los propios de Context7Max)
+  await upsertDecisionSpecs(db, STARTER_SPECS, (texts: string[]) => embedTextsEnv(opts.env, texts));
+  log(`  builtin: ${STARTER_SPECS.length} specs`);
+
+  // 2) repos comunitarios conocidos
+  const repos: Array<[string, string]> = [
+    ["typesafe-ai", "skills"], // SKILL.md's de TypeSafe — upkeep de la convención de skills operativas
+  ];
+  let extra = 0;
+  for (const [owner, repo] of repos) {
+    try {
+      const specs = await fetchDecisionSpecsFromGitHub(owner, repo, opts.githubToken);
+      if (specs.length) {
+        await upsertDecisionSpecs(db, specs, (texts: string[]) => embedTextsEnv(opts.env, texts));
+        extra += specs.length;
+        log(`  ${owner}/${repo}: ${specs.length} specs`);
+      }
+    } catch (err) {
+      log(`  ${owner}/${repo} falló: ${(err as Error).message}`);
+    }
+  }
+  return { total: STARTER_SPECS.length + extra };
+}
+
+async function embedTextsEnv(opts: { supabaseUrl: string; serviceRoleKey: string }, texts: string[]) {
+  const { embedSmart } = await import("@ctx7max/core");
+  return embedSmart({ supabaseUrl: opts.supabaseUrl, serviceRoleKey: opts.serviceRoleKey }, texts, "auto");
 }
 
 export { GUIDE_SOURCES };
