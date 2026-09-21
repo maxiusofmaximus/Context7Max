@@ -755,6 +755,108 @@ export async function listDecisionDomains(
   return [...map.entries()].map(([domain, count]) => ({ domain, count }));
 }
 
+// ── API keys (ciclo de vida completo) ───────────────────────────────
+
+export interface ApiKeyInfo {
+  id: number;
+  label: string | null;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+/** Issue una nueva key: devuelve el plaintext UNA sola vez (se guarda hasheado). */
+export async function createApiKey(
+  db: SupabaseClient,
+  opts: { label: string; expiresInDays?: number | null },
+): Promise<{ id: number; key: string; expiresAt: string | null }> {
+  const { createHash, randomBytes } = await import("node:crypto");
+  const key = `ctx7mk-${randomBytes(24).toString("hex")}`;
+  const keyHash = createHash("sha256").update(key).digest("hex");
+  const expiresAt =
+    opts.expiresInDays != null
+      ? new Date(Date.now() + opts.expiresInDays * 86_400_000).toISOString()
+      : null;
+  const { data, error } = await db
+    .from("api_keys")
+    .insert({ key_hash: keyHash, label: opts.label, expires_at: expiresAt })
+    .select("id")
+    .single();
+  if (error) throw new Error(`create api key: ${error.message}`);
+  return { id: (data as { id: number }).id, key, expiresAt };
+}
+
+export async function listApiKeys(db: SupabaseClient): Promise<ApiKeyInfo[]> {
+  const { data, error } = await db
+    .from("api_keys")
+    .select("id, label, created_at, expires_at, last_used_at, revoked_at")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`list api keys: ${error.message}`);
+  return (data as ApiKeyInfo[]) ?? [];
+}
+
+export async function revokeApiKey(db: SupabaseClient, id: number): Promise<void> {
+  const { error } = await db
+    .from("api_keys")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(`revoke api key: ${error.message}`);
+}
+
+export async function unrevokeApiKey(db: SupabaseClient, id: number): Promise<void> {
+  const { error } = await db
+    .from("api_keys")
+    .update({ revoked_at: null })
+    .eq("id", id);
+  if (error) throw new Error(`unrevoke api key: ${error.message}`);
+}
+
+/** Elimina una clave rotando: revoca la vieja y emite una nueva. */
+export async function rotateApiKey(
+  db: SupabaseClient,
+  id: number,
+  labelSuffix = "rotated",
+): Promise<{ id: number; key: string; oldId: number }> {
+  const { data: old } = await db
+    .from("api_keys")
+    .select("id, label")
+    .eq("id", id)
+    .maybeSingle();
+  if (!old) throw new Error(`api key ${id} no existe`);
+  const label = `${(old as { label?: string }).label ?? "key"} (${labelSuffix})`;
+  const fresh = await createApiKey(db, { label, expiresInDays: null });
+  await revokeApiKey(db, id);
+  return { ...fresh, oldId: id };
+}
+
+/**
+ * Valida una key para el servicio: hasheada, no revocada, no expirada.
+ * Devuelve el registro (para last_used_at update best-effort) o null.
+ */
+export async function validateApiKey(
+  db: SupabaseClient,
+  plaintext: string,
+): Promise<ApiKeyInfo | null> {
+  const { createHash } = await import("node:crypto");
+  const keyHash = createHash("sha256").update(plaintext).digest("hex");
+  const { data, error } = await db
+    .from("api_keys")
+    .select("id, label, created_at, expires_at, last_used_at, revoked_at")
+    .eq("key_hash", keyHash)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as ApiKeyInfo;
+  if (row.revoked_at) return null;
+  if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) return null;
+  // best-effort last_used_at (sin await bloqueante en el path feliz)
+  db.from("api_keys")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("id", row.id)
+    .then(undefined, () => {});
+  return row;
+}
+
 // ── Health ───────────────────────────────────────────────────────────
 
 export async function healthCheck(db: SupabaseClient): Promise<{

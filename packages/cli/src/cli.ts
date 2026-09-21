@@ -12,6 +12,7 @@ import {
 } from "./commands/manage.js";
 import { cmdDoctor } from "./commands/doctor.js";
 import { cmdSetup } from "./commands/setup.js";
+import { cmdKeysCreate, cmdKeysList, cmdKeysRevoke, cmdKeysRotate } from "./commands/keys.js";
 import {
   cmdGuide,
   cmdGuides,
@@ -120,6 +121,30 @@ program
   .option("--agents", "Universal (~/.agents/skills)")
   .option("--all", "todos los destinos")
   .action(cmdSetup);
+
+const keys = program.command("keys").description("Gestión de claves API (ciclo de vida completo)");
+keys
+  .command("list")
+  .alias("ls")
+  .description("Lista las claves secundarias")
+  .action(cmdKeysList);
+keys
+  .command("create")
+  .description("Crea una clave nueva")
+  .requiredOption("--label <texto>", "etiqueta (equipo, CI, propósito…)")
+  .option("--expires-in <duración>", "30d | 12h | never [defecto: never]")
+  .action(cmdKeysCreate);
+keys
+  .command("revoke")
+  .alias("delete")
+  .description("Revoca una clave por ID (inmediato)")
+  .argument("<id>")
+  .action(cmdKeysRevoke);
+keys
+  .command("rotate")
+  .description("Regenera una clave (revoca la vieja, emite nueva)")
+  .argument("<id>")
+  .action(cmdKeysRotate);
 
 program
   .command("guide")

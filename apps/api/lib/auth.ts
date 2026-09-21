@@ -26,8 +26,8 @@ export function getSupabase(): SupabaseClient {
 }
 
 /**
- * Reader auth: master key (CTX7MAX_API_KEY) or any key present in api_keys.
- * Anonymous is rejected — it's YOUR unlimited instance, not a public freebie.
+ * Reader auth: master key (CTX7MAX_API_KEY) or any VALID key in api_keys
+ * (no revocada, no expirada). Las keys caducan solo si tienen expires_at.
  */
 export async function isAuthorized(req: VercelRequest): Promise<boolean> {
   const token = bearerToken(req);
@@ -35,12 +35,23 @@ export async function isAuthorized(req: VercelRequest): Promise<boolean> {
   if (process.env.CTX7MAX_API_KEY && token === process.env.CTX7MAX_API_KEY)
     return true;
   try {
+    const now = new Date().toISOString();
     const { data, error } = await getSupabase()
       .from("api_keys")
-      .select("id")
+      .select("id, expires_at, revoked_at")
       .eq("key_hash", hashKey(token))
       .maybeSingle();
-    return !error && !!data;
+    if (error || !data) return false;
+    const row = data as { id: number; expires_at: string | null; revoked_at: string | null };
+    if (row.revoked_at) return false;
+    if (row.expires_at && row.expires_at < now) return false;
+    // last_used_at best-effort (no bloquea la respuesta)
+    getSupabase()
+      .from("api_keys")
+      .update({ last_used_at: now })
+      .eq("id", row.id)
+      .then(undefined, () => {});
+    return true;
   } catch {
     return false;
   }

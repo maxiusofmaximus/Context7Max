@@ -29131,8 +29131,15 @@ async function isAuthorized(req) {
   if (process.env.CTX7MAX_API_KEY && token === process.env.CTX7MAX_API_KEY)
     return true;
   try {
-    const { data, error } = await getSupabase().from("api_keys").select("id").eq("key_hash", hashKey(token)).maybeSingle();
-    return !error && !!data;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const { data, error } = await getSupabase().from("api_keys").select("id, expires_at, revoked_at").eq("key_hash", hashKey(token)).maybeSingle();
+    if (error || !data) return false;
+    const row = data;
+    if (row.revoked_at) return false;
+    if (row.expires_at && row.expires_at < now) return false;
+    getSupabase().from("api_keys").update({ last_used_at: now }).eq("id", row.id).then(void 0, () => {
+    });
+    return true;
   } catch {
     return false;
   }
