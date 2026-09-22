@@ -43,6 +43,12 @@ const SKILL_REPOS: { owner: string; repo: string; globHint: string }[] = [
   { owner: "elementalsouls", repo: "Claude-OSINT", globHint: "" },
   { owner: "gadievron", repo: "raptor", globHint: "" },
   { owner: "cloudflare", repo: "security-audit-skill", globHint: "" },
+  // Jev/System One ecosystem (con SKILL.md detectado por auditoría)
+  { owner: "jkudish", repo: "jev-mcp", globHint: "" },
+  { owner: "GhalebDweikat", repo: "winnow", globHint: "" },
+  { owner: "0xNatoshi", repo: "jev-codex-router", globHint: "" },
+  { owner: "irfndi", repo: "prism-liquidity-agent", globHint: "" },
+  { owner: "monteduro", repo: "killmyidea", globHint: "" },
   // ── ciencia/varios top del leaderboard ──
   { owner: "K-Dense-AI", repo: "scientific-agent-skills", globHint: "" },
   { owner: "emilkowalski", repo: "skills", globHint: "" },
